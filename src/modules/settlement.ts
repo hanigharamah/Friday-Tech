@@ -84,7 +84,7 @@ export async function settle(params: {
       captured_halalas: captured.toString(),
       released_halalas: released.toString(),
       grade: auth.grade,
-      created_at: txRecord.createdAt,
+      created_at: txRecord.createdAt.toISOString(),
     };
   });
 }
