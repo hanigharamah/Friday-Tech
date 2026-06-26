@@ -61,6 +61,24 @@ export async function authorize(params: {
   return await prisma.$transaction(async (tx) => {
     const locked = await lockWallet(tx, wallet.id);
 
+    // Anti-clone: only one active authorization per vehicle at a time.
+    // If the real car is already at a pump, a cloned tag hitting a second
+    // pump will find an existing AUTHORIZED row and be rejected here.
+    const existingAuth = await tx.authorization.findFirst({
+      where: {
+        vehicleId: vehicle.id,
+        status: 'AUTHORIZED',
+        expiresAt: { gt: new Date() },
+      },
+      select: { id: true },
+    });
+    if (existingAuth) {
+      throw Object.assign(
+        new Error('Vehicle already has an active authorization — only one fill at a time is permitted'),
+        { statusCode: 409 }
+      );
+    }
+
     const available = locked.balance_halalas - locked.held_halalas;
     if (available <= 0n) {
       throw Object.assign(new Error('Insufficient balance'), { statusCode: 422 });
