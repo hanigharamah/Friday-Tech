@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thobii — Fuel Wallet</title>
+  <style>
+    :root {
+      --bg: #000;
+      --surface: #1C1C1E;
+      --surface2: #2C2C2E;
+      --border: rgba(255,255,255,0.08);
+      --brand: #FF9F0A;
+      --green: #30D158;
+      --red: #FF453A;
+      --blue: #0A84FF;
+      --text: #F5F5F7;
+      --text2: #8E8E93;
+      --text3: #3A3A3C;
+      --navy: #1C3A5E;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 232px;
+      background: rgba(18,18,18,0.97);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 20px 12px 24px;
+      position: fixed;
+      height: 100vh;
+      z-index: 100;
+      gap: 2px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px 20px;
+    }
+    .logo-mark {
+      width: 34px; height: 34px;
+      background: var(--brand);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px; font-weight: 800; color: #000;
+    }
+    .logo-name { font-size: 18px; font-weight: 700; letter-spacing: -0.4px; }
+    .nav-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.9px; color: var(--text3); padding: 16px 10px 6px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 10px; border-radius: 9px;
+      cursor: pointer; color: var(--text2);
+      font-size: 14px; font-weight: 500;
+      transition: all 0.12s;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+    .nav-item.active { background: rgba(255,159,10,0.1); color: var(--brand); }
+    .nav-icon { font-size: 16px; width: 22px; text-align: center; }
+    .api-pill {
+      margin-top: auto;
+      background: rgba(48,209,88,0.06);
+      border: 1px solid rgba(48,209,88,0.12);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .api-pill-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: var(--green); margin-bottom: 2px; }
+    .api-pill-url { font-size: 12px; color: var(--text2); }
+    .api-dot { font-size: 11px; color: var(--green); margin-top: 2px; }
+
+    /* ── Top bar ── */
+    .topbar {
+      position: fixed; top: 0; left: 232px; right: 0; height: 52px;
+      background: rgba(0,0,0,0.85); backdrop-filter: blur(20px) saturate(180%);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 36px;
+      z-index: 50; gap: 12px;
+    }
+    .breadcrumb { font-size: 14px; color: var(--text2); }
+    .user-chip {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface); padding: 5px 12px 5px 5px;
+      border-radius: 100px; border: 1px solid var(--border); font-size: 13px;
+    }
+    .avatar {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: var(--brand);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 800; color: #000;
+    }
+
+    /* ── Main ── */
+    .main { margin-left: 232px; flex: 1; padding: 88px 36px 48px; max-width: 1100px; }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .ph { margin-bottom: 28px; }
+    .ph h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+    .ph p { font-size: 14px; color: var(--text2); margin-top: 3px; }
+
+    /* ── Cards ── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; }
+
+    /* Wallet hero */
+    .wallet-hero {
+      background: linear-gradient(135deg, #140b00 0%, #261500 60%, #140b00 100%);
+      border: 1px solid rgba(255,159,10,0.18);
+      border-radius: 22px; padding: 28px 28px 24px;
+      position: relative; overflow: hidden;
+    }
+    .wallet-hero::after {
+      content: '';
+      position: absolute; top: -80px; right: -80px;
+      width: 240px; height: 240px;
+      background: radial-gradient(circle, rgba(255,159,10,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .wh-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: rgba(255,159,10,0.6); margin-bottom: 6px; }
+    .wh-balance { font-size: 52px; font-weight: 800; letter-spacing: -2px; line-height: 1; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+    .wh-balance em { font-style: normal; font-size: 22px; font-weight: 600; opacity: 0.55; margin-right: 4px; }
+    .wh-avail { font-size: 13px; color: rgba(255,255,255,0.4); margin-bottom: 24px; }
+    .wh-actions { display: flex; gap: 10px; }
+
+    /* Buttons */
+    .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 100px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: all 0.12s; }
+    .btn-brand { background: var(--brand); color: #000; }
+    .btn-brand:hover { background: #e8900a; }
+    .btn-ghost { background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid rgba(255,255,255,0.08); }
+    .btn-ghost:hover { background: rgba(255,255,255,0.13); }
+    .btn-full { width: 100%; justify-content: center; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Grid */
+    .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+    .sec { margin-top: 24px; }
+    .sec-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .sec-hd h2 { font-size: 16px; font-weight: 600; }
+    .see-all { font-size: 13px; color: var(--text2); cursor: pointer; }
+    .see-all:hover { color: var(--text); }
+
+    /* Vehicle card */
+    .vc { padding: 18px; }
+    .vc-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .vc-plate { font-size: 20px; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 3px; }
+    .vc-make { font-size: 12px; color: var(--text2); }
+    .fuel-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 100px; font-size: 11px; font-weight: 700; }
+    .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 100px; font-size: 11px; font-weight: 600; }
+    .badge-green { background: rgba(48,209,88,0.1); color: var(--green); }
+    .badge-amber { background: rgba(255,159,10,0.1); color: var(--brand); }
+    .badge-red { background: rgba(255,69,58,0.1); color: var(--red); }
+
+    /* Stat */
+    .stat { padding: 18px; }
+    .stat-lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); margin-bottom: 8px; }
+    .stat-val { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+    .stat-sub { font-size: 12px; color: var(--text2); margin-top: 3px; }
+
+    /* Tx list */
+    .tx-item { display: flex; align-items: center; gap: 12px; padding: 13px 18px; border-bottom: 1px solid var(--border); }
+    .tx-item:last-child { border-bottom: none; }
+    .tx-ico { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+    .tx-info { flex: 1; min-width: 0; }
+    .tx-desc { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tx-time { font-size: 11px; color: var(--text2); margin-top: 1px; }
+    .tx-amt { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+    .tx-amt.pos { color: var(--green); }
+
+    /* Empty state */
+    .empty { padding: 48px; text-align: center; }
+    .empty-icon { font-size: 36px; margin-bottom: 12px; }
+    .empty-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+    .empty-msg { font-size: 13px; color: var(--text2); line-height: 1.5; }
+
+    /* Fill wizard */
+    .steps { display: flex; gap: 0; margin-bottom: 28px; }
+    .step { display: flex; align-items: center; flex: 1; }
+    .step:last-child { flex: none; }
+    .step-dot { width: 26px; height: 26px; border-radius: 50%; background: var(--surface2); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; color: var(--text2); }
+    .step.active .step-dot { border-color: var(--brand); color: var(--brand); }
+    .step.done .step-dot { background: var(--brand); border-color: var(--brand); color: #000; }
+    .step-meta { margin-left: 6px; margin-right: 8px; }
+    .step-name { font-size: 11px; font-weight: 600; color: var(--text2); white-space: nowrap; }
+    .step.active .step-name { color: var(--brand); }
+    .step.done .step-name { color: var(--text); }
+    .step-line { flex: 1; height: 1px; background: var(--border); margin: 0 4px; }
+    .step.done .step-line { background: var(--brand); }
+
+    /* Form */
+    .fg { margin-bottom: 14px; }
+    .fg label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 5px; font-weight: 500; }
+    .fi {
+      width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+      border-radius: 11px; padding: 11px 14px; font-size: 15px; color: var(--text);
+      outline: none; transition: border-color 0.12s; font-family: inherit;
+    }
+    .fi:focus { border-color: var(--brand); }
+    select.fi option { background: #1C1C1E; }
+    .fi-range { display: flex; align-items: center; gap: 12px; }
+    .fi-range input[type=range] { flex: 1; accent-color: var(--brand); }
+
+    /* Auth result */
+    .auth-box {
+      background: rgba(48,209,88,0.06); border: 1px solid rgba(48,209,88,0.12);
+      border-radius: 14px; padding: 14px 16px; margin-bottom: 18px;
+    }
+    .auth-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 13px; }
+    .auth-row-lbl { color: var(--text2); }
+    .auth-row-val { font-weight: 600; }
+
+    /* Pump */
+    .pump {
+      background: #000; border: 2px solid rgba(255,159,10,0.4); border-radius: 16px;
+      padding: 24px; text-align: center; margin-bottom: 18px; font-family: 'Courier New', monospace;
+    }
+    .pump-val { font-size: 52px; font-weight: 700; color: var(--brand); letter-spacing: 2px; font-variant-numeric: tabular-nums; line-height: 1; }
+    .pump-unit { font-size: 13px; color: rgba(255,159,10,0.5); margin-top: 4px; letter-spacing: 2px; }
+
+    /* Receipt */
+    .receipt {
+      background: linear-gradient(135deg, rgba(255,159,10,0.04), rgba(255,159,10,0.01));
+      border: 1px solid rgba(255,159,10,0.12); border-radius: 20px; padding: 28px; text-align: center;
+    }
+    .rec-icon { font-size: 44px; margin-bottom: 14px; }
+    .rec-amount { font-size: 36px; font-weight: 800; letter-spacing: -1px; color: var(--brand); margin-bottom: 6px; font-variant-numeric: tabular-nums; }
+    .rec-sub { font-size: 14px; color: var(--text2); margin-bottom: 22px; line-height: 1.4; }
+    .rec-rows { border-top: 1px solid var(--border); padding-top: 16px; text-align: left; }
+    .rec-row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+    .rec-row:last-child { border-bottom: none; }
+    .rec-lbl { color: var(--text2); }
+    .rec-val { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .rec-ref { margin-top: 16px; font-size: 11px; color: var(--text3); letter-spacing: 0.8px; font-variant-numeric: tabular-nums; }
+
+    /* Insights */
+    .insights { display: flex; gap: 0; border: 1px solid rgba(48,209,88,0.12); background: rgba(48,209,88,0.05); border-radius: 14px; overflow: hidden; margin-top: 14px; }
+    .ins-item { flex: 1; padding: 14px; text-align: center; }
+    .ins-item + .ins-item { border-left: 1px solid rgba(48,209,88,0.1); }
+    .ins-val { font-size: 20px; font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
+    .ins-lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+    /* Error */
+    .err { background: rgba(255,69,58,0.08); border: 1px solid rgba(255,69,58,0.15); border-radius: 11px; padding: 12px 14px; color: var(--red); font-size: 13px; margin-bottom: 14px; }
+
+    /* Reports table */
+    .rtable { width: 100%; border-collapse: collapse; }
+    .rtable th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text3); padding: 10px 16px; text-align: left; }
+    .rtable td { padding: 12px 16px; border-top: 1px solid var(--border); font-size: 13px; }
+    .rtable tr:hover td { background: rgba(255,255,255,0.015); }
+
+    /* Spinner */
+    .spin { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.15); border-top-color: var(--brand); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">ث</div>
+    <div class="logo-name">Thobii</div>
+  </div>
+
+  <div class="nav-label">Main</div>
+  <div class="nav-item active" onclick="nav('dashboard')"><span class="nav-icon">◼</span>Dashboard</div>
+  <div class="nav-item" onclick="nav('fill')"><span class="nav-icon">⛽</span>Simulate Fill</div>
+  <div class="nav-item" onclick="nav('reports')"><span class="nav-icon">📊</span>Reports</div>
+
+  <div class="nav-label">Account</div>
+  <div class="nav-item" onclick="nav('setup')"><span class="nav-icon">⚙</span>Setup</div>
+
+  <div class="api-pill">
+    <div class="api-pill-label">Live API</div>
+    <div class="api-pill-url">localhost:3001</div>
+    <div class="api-dot" id="api-dot">● Connected</div>
+  </div>
+</nav>
+
+<!-- Top bar -->
+<div class="topbar">
+  <span class="breadcrumb" id="breadcrumb">Dashboard</span>
+  <div class="user-chip">
+    <div class="avatar" id="av">M</div>
+    <span id="uname">Loading…</span>
+  </div>
+</div>
+
+<!-- Main -->
+<main class="main">
+
+  <!-- ── Dashboard ── -->
+  <div id="p-dashboard" class="page active">
+    <div class="ph">
+      <h1>Wallet Overview</h1>
+      <p id="dash-date"></p>
+    </div>
+
+    <div class="wallet-hero">
+      <div class="wh-label">Available Balance</div>
+      <div class="wh-balance"><em>SAR</em><span id="bal">—</span></div>
+      <div class="wh-avail" id="avail-info">Loading…</div>
+      <div class="wh-actions">
+        <button class="btn btn-brand" onclick="promptTopup()">＋ Top Up</button>
+        <button class="btn btn-ghost" onclick="nav('fill')">⛽ Fill Now</button>
+      </div>
+    </div>
+
+    <div class="g2 sec">
+      <div class="card">
+        <div class="vc">
+          <div class="vc-top">
+            <div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text2);margin-bottom:4px">Vehicle</div>
+              <div class="vc-plate" id="v-plate">—</div>
+              <div class="vc-make" id="v-make">—</div>
+            </div>
+            <div class="fuel-badge" id="v-fbadge" style="background:rgba(255,159,10,.1);color:#FF9F0A">⬟ Gasoline 95</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="badge badge-green" id="v-status">● Active</span>
+            <span style="font-size:11px;color:var(--text2)" id="v-tag">—</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="vc">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text2);margin-bottom:14px">This Month</div>
+          <div class="g2">
+            <div>
+              <div class="stat-val" id="m-fills">—</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:3px">Fills</div>
+            </div>
+            <div>
+              <div class="stat-val" id="m-spend">—</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:3px">SAR Spent</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-hd">
+        <h2>Recent Activity</h2>
+        <span class="see-all" onclick="nav('reports')">See all →</span>
+      </div>
+      <div class="card">
+        <div id="tx-list"><div style="padding:48px;text-align:center"><span class="spin"></span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Fill ── -->
+  <div id="p-fill" class="page">
+    <div class="ph">
+      <h1>Simulate Fill</h1>
+      <p>Walk through a real pump transaction end-to-end</p>
+    </div>
+
+    <div class="steps" id="steps">
+      <div class="step active" id="st1">
+        <div class="step-dot">1</div><div class="step-meta"><div class="step-name">Tap RFID</div></div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step" id="st2">
+        <div class="step-dot">2</div><div class="step-meta"><div class="step-name">Authorized</div></div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step" id="st3">
+        <div class="step-dot">3</div><div class="step-meta"><div class="step-name">Dispensing</div></div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step" id="st4">
+        <div class="step-dot">✓</div><div class="step-meta"><div class="step-name">Receipt</div></div>
+      </div>
+    </div>
+
+    <!-- Step 1 -->
+    <div id="fs1" style="max-width:480px">
+      <div class="card" style="padding:24px">
+        <h3 style="font-size:16px;font-weight:600;margin-bottom:18px">🏷️ Scan RFID at Pump</h3>
+        <div class="err" id="f-err" style="display:none"></div>
+        <div class="fg">
+          <label>RFID Tag UID</label>
+          <input class="fi" id="f-tag" placeholder="e.g. RFID-TAG-0042">
+        </div>
+        <div class="fg">
+          <label>Station Code</label>
+          <input class="fi" id="f-station" value="ALDREES-RYD-001">
+        </div>
+        <div class="fg">
+          <label>Fuel Grade</label>
+          <select class="fi" id="f-grade">
+            <option value="GASOLINE_95">⬟ Gasoline 95</option>
+            <option value="GASOLINE_91">⬟ Gasoline 91</option>
+            <option value="DIESEL">⬟ Diesel</option>
+          </select>
+        </div>
+        <button class="btn btn-brand btn-full" id="auth-btn" onclick="doAuth()">Authorize at Pump</button>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div id="fs2" style="display:none;max-width:480px">
+      <div class="card" style="padding:24px">
+        <h3 style="font-size:16px;font-weight:600;margin-bottom:16px">✅ Ready to Fill</h3>
+        <div class="auth-box" id="auth-box"></div>
+        <div class="fg">
+          <label>Litres to dispense</label>
+          <div class="fi-range">
+            <input type="range" id="lrange" min="1" max="120" value="35" oninput="document.getElementById('lnum').textContent=parseFloat(this.value).toFixed(1)+' L'">
+            <span id="lnum" style="font-size:14px;font-weight:600;color:var(--brand);min-width:60px;text-align:right">35.0 L</span>
+          </div>
+        </div>
+        <button class="btn btn-brand btn-full" onclick="doSettle()">⛽ Dispense Fuel</button>
+        <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="resetFill()">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div id="fs3" style="display:none;max-width:480px">
+      <div class="pump">
+        <div class="pump-val" id="pump-r">0.000</div>
+        <div class="pump-unit">LITRES</div>
+      </div>
+      <div style="text-align:center;color:var(--text2);font-size:13px">
+        <span class="spin"></span>&nbsp; Dispensing fuel, please wait…
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div id="fs4" style="display:none;max-width:480px">
+      <div class="receipt">
+        <div class="rec-icon">⛽</div>
+        <div class="rec-amount" id="r-amt">—</div>
+        <div class="rec-sub" id="r-sub">—</div>
+        <div class="rec-rows" id="r-rows"></div>
+        <div class="rec-ref" id="r-ref">—</div>
+      </div>
+      <div class="insights" id="r-insights" style="display:none">
+        <div class="ins-item">
+          <div class="ins-val" id="i-fills">—</div>
+          <div class="ins-lbl">Fills this month</div>
+        </div>
+        <div class="ins-item">
+          <div class="ins-val" id="i-spend">—</div>
+          <div class="ins-lbl">SAR spent</div>
+        </div>
+      </div>
+      <button class="btn btn-brand btn-full" style="margin-top:16px" onclick="resetFill()">Done</button>
+    </div>
+  </div>
+
+  <!-- ── Reports ── -->
+  <div id="p-reports" class="page">
+    <div class="ph">
+      <h1>Reports</h1>
+      <p id="rep-date">Today's reconciliation</p>
+    </div>
+
+    <div class="g3" id="recon-grid">
+      <div class="card stat"><div class="stat-lbl">Topups Today</div><div class="stat-val" id="r-tc">—</div><div class="stat-sub" id="r-tt">—</div></div>
+      <div class="card stat"><div class="stat-lbl">Fills Today</div><div class="stat-val" id="r-fc">—</div><div class="stat-sub" id="r-ft">—</div></div>
+      <div class="card stat"><div class="stat-lbl">Settled Auth.</div><div class="stat-val" id="r-sc">—</div><div class="stat-sub" id="r-oh">—</div></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-hd"><h2>Wallet Statement</h2></div>
+      <div class="card">
+        <table class="rtable">
+          <thead><tr><th>Type</th><th>Description</th><th>Time</th><th style="text-align:right">Amount</th></tr></thead>
+          <tbody id="stmt-body"><tr><td colspan="4" style="padding:40px;text-align:center"><span class="spin"></span></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Setup ── -->
+  <div id="p-setup" class="page">
+    <div class="ph"><h1>Setup</h1><p>Demo account configuration</p></div>
+    <div class="card" style="padding:24px;max-width:480px">
+      <h3 style="font-size:16px;font-weight:600;margin-bottom:16px">Demo Account</h3>
+      <div id="setup-body" style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:20px"></div>
+      <button class="btn btn-brand" onclick="resetDemo()">Create New Demo Account</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const API = '';  // same origin
+let S = {};      // app state
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+
+async function boot() {
+  document.getElementById('dash-date').textContent =
+    new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  document.getElementById('rep-date').textContent =
+    'Reconciliation for ' + new Date().toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+
+  const saved = localStorage.getItem('thobii');
+  if (saved) try { S = JSON.parse(saved); } catch {}
+
+  if (!S.userId) {
+    await createDemo();
+  } else {
+    applyState();
+    await loadDash();
+  }
+}
+
+async function createDemo() {
+  const uid = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  const name = 'Mohammed Al-Rashidi';
+  try {
+    const u = await req('POST', '/v1/users', { name, email: `demo-${uid}@thobii.sa` });
+    S.userId = u.user.id;
+    S.walletId = u.wallet.id;
+    S.name = u.user.name;
+
+    // Top up 1000 SAR
+    await req('POST', '/v1/wallet/topups/app',
+      { wallet_id: S.walletId, amount_halalas: 100000, method: 'APPLE_PAY' },
+      `boot-${uid}`);
+
+    // Create vehicle + tag
+    const v = await req('POST', '/v1/vehicles', {
+      user_id: S.userId,
+      plate: 'ABC 1234',
+      allowed_grade: 'GASOLINE_95',
+      make_model: 'Toyota Camry 2024',
+      tank_capacity_ml: 65000,
+      tag_uid: `RFID-${uid}`,
+    });
+    S.vehicleId = v.vehicle.id;
+    S.tagUid = `RFID-${uid}`;
+    S.plate = v.vehicle.plate;
+    S.makeModel = v.vehicle.make_model;
+    S.fuelType = v.vehicle.fuel_type;
+    S.colorHint = v.vehicle.color_hint;
+
+    save();
+    applyState();
+    await loadDash();
+  } catch(e) {
+    console.error('Demo setup failed', e);
+    document.getElementById('uname').textContent = 'Setup failed — check console';
+  }
+}
+
+function applyState() {
+  const initials = (S.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('uname').textContent = S.name || '—';
+  document.getElementById('av').textContent = initials;
+  document.getElementById('f-tag').value = S.tagUid || '';
+  document.getElementById('v-plate').textContent = S.plate || '—';
+  document.getElementById('v-make').textContent = S.makeModel || '—';
+  if (S.fuelType) {
+    const fb = document.getElementById('v-fbadge');
+    fb.textContent = '⬟ ' + S.fuelType.display;
+    if (S.colorHint) { fb.style.background = S.colorHint.background + '18'; fb.style.color = S.colorHint.background; }
+  }
+  if (S.tagUid) document.getElementById('v-tag').textContent = '🏷 ' + S.tagUid;
+}
+
+function save() { localStorage.setItem('thobii', JSON.stringify(S)); }
+
+// ── API ───────────────────────────────────────────────────────────────────────
+
+async function req(method, path, body, ikey) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (ikey) headers['Idempotency-Key'] = ikey;
+  const r = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const d = await r.json();
+  if (!r.ok) throw Object.assign(new Error(d.error || 'Request failed'), { data: d });
+  return d;
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+
+async function loadDash() {
+  if (!S.walletId) return;
+  try {
+    const [w, stmt] = await Promise.all([
+      req('GET', `/v1/wallets/${S.walletId}`),
+      req('GET', `/v1/wallets/${S.walletId}/statement`),
+    ]);
+
+    document.getElementById('bal').textContent = w.balance_sar ?? '—';
+    document.getElementById('avail-info').textContent =
+      w.held_halalas !== '0'
+        ? `SAR ${w.available_sar} available · SAR ${(parseInt(w.held_halalas)/100).toFixed(2)} on hold`
+        : `SAR ${w.available_sar} available · No active holds`;
+
+    const entries = stmt.entries ?? [];
+    renderTx(entries);
+
+    const fills = entries.filter(e => e.type === 'CAPTURE');
+    document.getElementById('m-fills').textContent = fills.length;
+    const spent = fills.reduce((s,e) => s + Math.abs(parseFloat(e.amount_sar)), 0);
+    document.getElementById('m-spend').textContent = spent.toFixed(2);
+  } catch(e) { console.error(e); }
+}
+
+function renderTx(entries) {
+  const el = document.getElementById('tx-list');
+  if (!entries.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⛽</div><div class="empty-title">No fills yet</div><div class="empty-msg">Tap your RFID tag at any Aldrees pump to make your first fill.</div></div>`;
+    return;
+  }
+  el.innerHTML = entries.slice(0,6).map(e => {
+    const credit = e.type === 'TOPUP_CREDIT' || e.type === 'REVERSAL';
+    const icon = e.type === 'TOPUP_CREDIT' ? '💳' : e.type === 'REVERSAL' ? '↩' : '⛽';
+    const ibg = e.type === 'TOPUP_CREDIT' ? 'rgba(10,132,255,.1)' : 'rgba(255,159,10,.1)';
+    return `
+      <div class="tx-item">
+        <div class="tx-ico" style="background:${ibg}">${icon}</div>
+        <div class="tx-info">
+          <div class="tx-desc">${e.description}</div>
+          <div class="tx-time">${e.display_time}</div>
+        </div>
+        <div class="tx-amt ${credit?'pos':''}">${credit?'+':''}SAR ${e.amount_sar}</div>
+      </div>`;
+  }).join('');
+}
+
+// ── Top-up ────────────────────────────────────────────────────────────────────
+
+async function promptTopup() {
+  const v = prompt('Top-up amount in SAR (e.g. 200):', '200');
+  if (!v) return;
+  const h = Math.round(parseFloat(v) * 100);
+  if (isNaN(h) || h <= 0) return alert('Invalid amount');
+  try {
+    await req('POST', '/v1/wallet/topups/app',
+      { wallet_id: S.walletId, amount_halalas: h, method: 'APPLE_PAY' },
+      `topup-${Date.now()}`);
+    await loadDash();
+  } catch(e) { alert(e.message); }
+}
+
+// ── Fill simulator ────────────────────────────────────────────────────────────
+
+let authId = null;
+
+async function doAuth() {
+  const tag = document.getElementById('f-tag').value.trim();
+  const station = document.getElementById('f-station').value.trim();
+  const grade = document.getElementById('f-grade').value;
+  const errEl = document.getElementById('f-err');
+  errEl.style.display = 'none';
+
+  const btn = document.getElementById('auth-btn');
+  btn.disabled = true; btn.textContent = 'Authorizing…';
+
+  try {
+    const a = await req('POST', '/v1/fuel/authorize', { tag_uid: tag, station_code: station, grade });
+    authId = a.authorization_id;
+    const maxL = parseFloat(a.max_litres);
+
+    document.getElementById('auth-box').innerHTML = `
+      <div class="auth-row"><span class="auth-row-lbl">Status</span><span class="badge badge-green">● ${a.status_display}</span></div>
+      <div class="auth-row"><span class="auth-row-lbl">Fuel</span><span class="auth-row-val">${a.fuel_type.display}</span></div>
+      <div class="auth-row"><span class="auth-row-lbl">Station</span><span class="auth-row-val">${a.station_name}</span></div>
+      <div class="auth-row"><span class="auth-row-lbl">Price / litre</span><span class="auth-row-val">SAR ${a.price_per_litre_sar}</span></div>
+      <div class="auth-row"><span class="auth-row-lbl">Max volume</span><span class="auth-row-val">${a.max_litres} L</span></div>
+      <div class="auth-row"><span class="auth-row-lbl">Expires</span><span class="auth-row-val" style="color:var(--text2)">${a.display_time}</span></div>
+    `;
+
+    const r = document.getElementById('lrange');
+    r.max = maxL; r.value = Math.min(35, maxL);
+    document.getElementById('lnum').textContent = Math.min(35, maxL).toFixed(1) + ' L';
+
+    setStep(2);
+  } catch(e) {
+    errEl.style.display = 'block'; errEl.textContent = e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Authorize at Pump';
+  }
+}
+
+async function doSettle() {
+  const litres = parseFloat(document.getElementById('lrange').value);
+  const ml = Math.round(litres * 1000);
+  setStep(3);
+
+  let shown = 0;
+  const id = setInterval(() => {
+    shown = Math.min(shown + litres / 25, litres);
+    document.getElementById('pump-r').textContent = shown.toFixed(3);
+    if (shown >= litres) clearInterval(id);
+  }, 60);
+
+  await new Promise(r => setTimeout(r, 1700));
+
+  try {
+    const res = await req('POST', '/v1/fuel/settle',
+      { authorization_id: authId, millilitres_dispensed: ml },
+      `settle-${authId}`);
+
+    const rc = res.receipt;
+    document.getElementById('r-amt').textContent = 'SAR ' + rc.amount_charged_sar;
+    document.getElementById('r-sub').textContent = rc.subheadline;
+    document.getElementById('r-rows').innerHTML = `
+      <div class="rec-row"><span class="rec-lbl">Station</span><span class="rec-val">${rc.station_name}</span></div>
+      <div class="rec-row"><span class="rec-lbl">Fuel type</span><span class="rec-val">${rc.fuel_type.display}</span></div>
+      <div class="rec-row"><span class="rec-lbl">Volume</span><span class="rec-val">${rc.quantity_litres} L</span></div>
+      <div class="rec-row"><span class="rec-lbl">Unit price</span><span class="rec-val">SAR ${rc.unit_price_sar} / L</span></div>
+      <div class="rec-row" style="border-top:1px solid rgba(255,159,10,.15);margin-top:6px;padding-top:10px">
+        <span class="rec-lbl">Amount charged</span>
+        <span class="rec-val" style="color:var(--brand);font-size:15px">SAR ${rc.amount_charged_sar}</span>
+      </div>
+      <div class="rec-row"><span class="rec-lbl">New balance</span><span class="rec-val">SAR ${rc.new_balance_sar}</span></div>
+    `;
+    document.getElementById('r-ref').textContent = rc.fill_reference + ' · ' + rc.display_time;
+
+    if (res.insights) {
+      document.getElementById('i-fills').textContent = res.insights.fills_this_month;
+      document.getElementById('i-spend').textContent = res.insights.spent_this_month_sar;
+      document.getElementById('r-insights').style.display = 'flex';
+    }
+
+    setStep(4);
+    loadDash();
+  } catch(e) {
+    alert(e.message);
+    setStep(2);
+  }
+}
+
+function resetFill() {
+  authId = null;
+  document.getElementById('f-err').style.display = 'none';
+  document.getElementById('r-insights').style.display = 'none';
+  setStep(1);
+  loadDash();
+}
+
+function setStep(n) {
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById('fs' + i);
+    if (el) el.style.display = i === n ? 'block' : 'none';
+    const st = document.getElementById('st' + i);
+    if (!st) continue;
+    st.classList.remove('active', 'done');
+    if (i < n) st.classList.add('done');
+    else if (i === n) st.classList.add('active');
+  }
+}
+
+// ── Reports ───────────────────────────────────────────────────────────────────
+
+async function loadReports() {
+  if (!S.walletId) return;
+  try {
+    const [rc, st] = await Promise.all([
+      req('GET', '/v1/reports/reconciliation'),
+      req('GET', `/v1/wallets/${S.walletId}/statement`),
+    ]);
+
+    document.getElementById('r-tc').textContent = rc.topups.count;
+    document.getElementById('r-tt').textContent = 'SAR ' + rc.topups.total_sar;
+    document.getElementById('r-fc').textContent = rc.fills.count;
+    document.getElementById('r-ft').textContent = rc.fills.total_litres + ' L · SAR ' + rc.fills.total_sar;
+    document.getElementById('r-sc').textContent = rc.authorizations.settled;
+    document.getElementById('r-oh').textContent = rc.outstanding_holds.count + ' outstanding holds';
+
+    const entries = st.entries ?? [];
+    const tbody = document.getElementById('stmt-body');
+    if (!entries.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="padding:40px;text-align:center;color:var(--text3)">No transactions yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = entries.map(e => {
+      const credit = e.type === 'TOPUP_CREDIT' || e.type === 'REVERSAL';
+      const badge = e.type === 'TOPUP_CREDIT'
+        ? '<span class="badge badge-green">Top-up</span>'
+        : e.type === 'REVERSAL'
+        ? '<span class="badge badge-amber">Reversal</span>'
+        : '<span class="badge badge-amber">Fill</span>';
+      const amt = credit
+        ? `<span style="color:var(--green)">+SAR ${e.amount_sar}</span>`
+        : `SAR ${e.amount_sar}`;
+      return `<tr>
+        <td>${badge}</td>
+        <td style="color:var(--text2)">${e.description}</td>
+        <td style="color:var(--text2)">${e.display_time}</td>
+        <td style="text-align:right;font-weight:600;font-variant-numeric:tabular-nums">${amt}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+
+const LABELS = { dashboard:'Dashboard', fill:'Simulate Fill', reports:'Reports', setup:'Setup' };
+
+function nav(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('p-' + name).classList.add('active');
+  document.querySelector(`[onclick="nav('${name}')"]`).classList.add('active');
+  document.getElementById('breadcrumb').textContent = LABELS[name] || name;
+
+  if (name === 'dashboard') loadDash();
+  if (name === 'reports') loadReports();
+  if (name === 'fill') document.getElementById('f-tag').value = S.tagUid || '';
+  if (name === 'setup') {
+    document.getElementById('setup-body').innerHTML =
+      `<b>User ID:</b> ${S.userId||'—'}<br><b>Wallet ID:</b> ${S.walletId||'—'}<br><b>Vehicle:</b> ${S.plate||'—'} — ${S.makeModel||'—'}<br><b>RFID Tag:</b> ${S.tagUid||'—'}`;
+  }
+}
+
+async function resetDemo() {
+  if (!confirm('Create a fresh demo account?')) return;
+  localStorage.removeItem('thobii');
+  S = {};
+  await createDemo();
+  nav('dashboard');
+}
+
+boot();
+</script>
+</body>
+</html>
