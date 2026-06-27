@@ -453,6 +453,28 @@
     .metric-val { font-size: 32px; font-weight: 700; letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; }
     .metric-sub { font-size: 12px; color: var(--ink-3); margin-top: 5px; }
 
+    .reports-top { display: grid; grid-template-columns: 300px 1fr; gap: 14px; margin-bottom: 22px; }
+    .donut-card { padding: 24px; border-radius: var(--r-lg); }
+    .donut-title { font-size: 11.5px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--ink-2); margin-bottom: 16px; }
+    .donut-wrap { position: relative; width: 168px; height: 168px; margin: 0 auto 20px; }
+    .donut-wrap svg { display: block; transform: rotate(-90deg); }
+    .donut-wrap circle { transition: stroke-dasharray .7s cubic-bezier(.22,1,.36,1); }
+    .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .donut-total { font-size: 25px; font-weight: 700; letter-spacing: -0.8px; font-variant-numeric: tabular-nums; }
+    .donut-total::before { content: 'SAR '; font-size: 12px; font-weight: 600; color: var(--ink-3); letter-spacing: 0; }
+    .donut-cap { font-size: 11px; color: var(--ink-3); font-weight: 500; margin-top: 3px; }
+    .legend { display: flex; flex-direction: column; gap: 10px; }
+    .legend-row { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; box-shadow: inset 0 1px 0 rgba(255,255,255,0.4); }
+    .legend-name { color: var(--ink-2); }
+    .legend-val { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
+    .summary-card { padding: 4px 24px; border-radius: var(--r-lg); display: flex; flex-direction: column; justify-content: center; }
+    .sum-row { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
+    .sum-row + .sum-row { border-top: 0.5px solid var(--hairline-dk); }
+    .sum-label { font-size: 14px; font-weight: 600; }
+    .sum-sub { font-size: 12px; color: var(--ink-3); margin-top: 3px; }
+    .sum-val { font-size: 30px; font-weight: 700; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+
     .table { width: 100%; border-collapse: collapse; }
     .table th { font-size: 11px; font-weight: 650; letter-spacing: 0.5px; text-transform: uppercase; color: var(--ink-3); text-align: left; padding: 13px 18px; border-bottom: 0.5px solid var(--hairline-dk); }
     .table td { padding: 13px 18px; font-size: 14px; vertical-align: middle; }
@@ -518,9 +540,28 @@
     ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
     ::-webkit-scrollbar-track { background: transparent; }
 
+    /* Cards lift gently toward the pointer — tactile, not bouncy */
+    .stat, .vehicle, .donut-card, .summary-card, .panel {
+      transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s ease;
+    }
+    .stat:hover, .vehicle:hover, .donut-card:hover, .summary-card:hover {
+      transform: translateY(-2px);
+    }
+
+    @media (max-width: 980px) {
+      .reports-top { grid-template-columns: 1fr; }
+      .hero-grid { flex-direction: column; }
+      .hero-right { width: auto; border-left: none; padding-left: 0; border-top: 0.5px solid var(--hairline-dk); padding-top: 20px; margin-top: 4px; }
+    }
     @media (max-width: 880px) {
       .sidebar { display: none; }
       .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+
+    /* Respect reduced-motion — still the destination, just no journey */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+      .ambient::before, .ambient::after { animation: none !important; }
     }
   </style>
 </head>
@@ -788,10 +829,20 @@
       <!-- ════════════ REPORTS ════════════ -->
       <div id="p-reports" class="page">
         <div class="heading"><h1>Reports</h1><p id="rep-date">Daily reconciliation</p></div>
-        <div class="grid-3">
-          <div class="metric glass"><div class="metric-label">Topups Today</div><div class="metric-val" id="r-tc">—</div><div class="metric-sub" id="r-tt">—</div></div>
-          <div class="metric glass"><div class="metric-label">Fills Today</div><div class="metric-val" id="r-fc">—</div><div class="metric-sub" id="r-ft">—</div></div>
-          <div class="metric glass"><div class="metric-label">Settled Auth.</div><div class="metric-val" id="r-sc">—</div><div class="metric-sub" id="r-oh">—</div></div>
+        <div class="reports-top">
+          <div class="glass donut-card">
+            <div class="donut-title">Spending by Fuel</div>
+            <div class="donut-wrap">
+              <div id="donut"></div>
+              <div class="donut-center"><div class="donut-total" id="donut-total">—</div><div class="donut-cap">total spent</div></div>
+            </div>
+            <div class="legend" id="donut-legend"></div>
+          </div>
+          <div class="glass summary-card">
+            <div class="sum-row"><div><div class="sum-label">Topups Today</div><div class="sum-sub" id="r-tt">—</div></div><div class="sum-val" id="r-tc">—</div></div>
+            <div class="sum-row"><div><div class="sum-label">Fills Today</div><div class="sum-sub" id="r-ft">—</div></div><div class="sum-val" id="r-fc">—</div></div>
+            <div class="sum-row"><div><div class="sum-label">Settled Authorizations</div><div class="sum-sub" id="r-oh">—</div></div><div class="sum-val" id="r-sc">—</div></div>
+          </div>
         </div>
         <div style="margin-top:22px">
           <div class="section-head"><h2>Statement</h2></div>
@@ -827,6 +878,24 @@ let S = {};
 let topupAmt = 200;
 
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),3200); }
+
+// Grouped currency formatting — 1,234.56 (Apple always groups thousands)
+function fmt(v){ const n=typeof v==='number'?v:parseFloat(v); if(isNaN(n)) return v; return n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Spring-eased count-up for value changes
+function countUp(el, to){
+  const from = parseFloat((el.textContent||'0').replace(/,/g,'')) || 0;
+  if(reduceMotion || from===to){ el.textContent=fmt(to); return; }
+  const dur=650, t0=performance.now();
+  (function tick(now){
+    const p=Math.min(1,(now-t0)/dur);
+    const e=1-Math.pow(1-p,3); // easeOutCubic
+    el.textContent=fmt(from+(to-from)*e);
+    if(p<1) requestAnimationFrame(tick);
+  })(t0);
+}
 
 async function req(method, path, body, ikey){
   const h={'Content-Type':'application/json'}; if(ikey) h['Idempotency-Key']=ikey;
@@ -883,17 +952,17 @@ async function loadDash(){
   if(!S.walletId) return;
   try{
     const [w,stmt]=await Promise.all([req('GET',`/v1/wallets/${S.walletId}`),req('GET',`/v1/wallets/${S.walletId}/statement`)]);
-    document.getElementById('bal').textContent=w.balance_sar??'—';
+    countUp(document.getElementById('bal'), parseFloat(w.balance_sar)||0);
     const held=BigInt(w.held_halalas??'0');
     document.getElementById('avail-txt').textContent= held>0n
-      ? `SAR ${w.available_sar} available · SAR ${(Number(held)/100).toFixed(2)} on hold`
-      : `SAR ${w.available_sar} available`;
+      ? `SAR ${fmt(w.available_sar)} available · SAR ${fmt(Number(held)/100)} on hold`
+      : `SAR ${fmt(w.available_sar)} available`;
     const entries=stmt.entries??[];
     buildTxList(entries);
     renderSpark(entries);
     const fills=entries.filter(e=>e.type==='CAPTURE');
     document.getElementById('m-fills').textContent=fills.length;
-    document.getElementById('m-spend').textContent=fills.reduce((s,e)=>s+Math.abs(parseFloat(e.amount_sar)),0).toFixed(2);
+    document.getElementById('m-spend').textContent=fmt(fills.reduce((s,e)=>s+Math.abs(parseFloat(e.amount_sar)),0));
   }catch(e){ console.error(e); }
 }
 
@@ -914,7 +983,7 @@ function renderSpark(entries){
   });
   const max=Math.max(...days.map(x=>x.total),1);
   const week=days.reduce((a,x)=>a+x.total,0);
-  document.getElementById('spark-total').textContent=week.toFixed(2);
+  document.getElementById('spark-total').textContent=fmt(week);
 
   // Drawn as SVG for pixel-exact bar heights
   const W=240, H=72, gap=12, n=7, bw=(W-gap*(n-1))/n;
@@ -947,7 +1016,7 @@ function buildTxList(entries){
     <div class="tx-row">
       <div class="tx-icon" style="background:${i.bg};color:${i.fg}">${i.svg}</div>
       <div class="tx-body"><div class="tx-title">${e.description}</div><div class="tx-time">${e.display_time}</div></div>
-      <div class="tx-amt ${credit(e.type)?'cr':'db'}">${credit(e.type)?'+':'−'}SAR ${Math.abs(parseFloat(e.amount_sar)).toFixed(2)}</div>
+      <div class="tx-amt ${credit(e.type)?'cr':'db'}">${credit(e.type)?'+':'−'}SAR ${fmt(Math.abs(parseFloat(e.amount_sar)))}</div>
     </div>`; }).join('');
 }
 
@@ -998,17 +1067,17 @@ async function doSettle(){
   try{
     const res=await req('POST','/v1/fuel/settle',{authorization_id:authId,millilitres_dispensed:ml},`settle-${authId}`);
     const rc=res.receipt;
-    document.getElementById('r-amt').textContent='SAR '+rc.amount_charged_sar;
+    document.getElementById('r-amt').textContent='SAR '+fmt(rc.amount_charged_sar);
     document.getElementById('r-sub').textContent=rc.subheadline;
     document.getElementById('r-rows').innerHTML=`
       <div class="rec-row"><span class="rec-key">Station</span><span class="rec-val">${rc.station_name}</span></div>
       <div class="rec-row"><span class="rec-key">Fuel</span><span class="rec-val">${rc.fuel_type.display}</span></div>
       <div class="rec-row"><span class="rec-key">Volume</span><span class="rec-val">${rc.quantity_litres} L</span></div>
       <div class="rec-row"><span class="rec-key">Price / L</span><span class="rec-val">SAR ${rc.unit_price_sar}</span></div>
-      <div class="rec-row"><span class="rec-key">New balance</span><span class="rec-val">SAR ${rc.new_balance_sar}</span></div>
-      <div class="rec-row rec-total"><span class="rec-key">Charged</span><span class="rec-val">SAR ${rc.amount_charged_sar}</span></div>`;
+      <div class="rec-row"><span class="rec-key">New balance</span><span class="rec-val">SAR ${fmt(rc.new_balance_sar)}</span></div>
+      <div class="rec-row rec-total"><span class="rec-key">Charged</span><span class="rec-val">SAR ${fmt(rc.amount_charged_sar)}</span></div>`;
     document.getElementById('r-ref').textContent=rc.fill_reference+' · '+rc.display_time;
-    if(res.insights){ document.getElementById('i-fills').textContent=res.insights.fills_this_month; document.getElementById('i-spend').textContent=res.insights.spent_this_month_sar; document.getElementById('r-ins').style.display='flex'; }
+    if(res.insights){ document.getElementById('i-fills').textContent=res.insights.fills_this_month; document.getElementById('i-spend').textContent=fmt(res.insights.spent_this_month_sar); document.getElementById('r-ins').style.display='flex'; }
     setStep(4); loadDash();
   }catch(e){ toast(e.message); setStep(2); }
 }
@@ -1031,22 +1100,57 @@ function setStep(n){
   }
 }
 
+// Spending-by-grade donut — Apple Fitness ring treatment (rounded caps, segments)
+const GRADE_COLORS={'Gasoline 95':'#FF9500','Gasoline 91':'#1C3A5E','Diesel':'#34C759'};
+function gradeFromDesc(d){ try{ return d.split('—')[1].split('·')[0].trim(); }catch{ return 'Fuel'; } }
+function renderDonut(entries){
+  const fills=entries.filter(e=>e.type==='CAPTURE');
+  const byGrade={};
+  fills.forEach(e=>{ const g=gradeFromDesc(e.description); byGrade[g]=(byGrade[g]||0)+Math.abs(parseFloat(e.amount_sar)); });
+  const grades=Object.keys(byGrade);
+  const total=grades.reduce((a,g)=>a+byGrade[g],0);
+  document.getElementById('donut-total').textContent=fmt(total);
+
+  const R=64, SW=18, C=2*Math.PI*R, gap=(total>0&&grades.length>1)?7:0;
+  let circles='', acc=0;
+  if(total===0){
+    circles=`<circle cx="84" cy="84" r="${R}" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="${SW}"/>`;
+  } else {
+    grades.forEach(g=>{
+      const frac=byGrade[g]/total;
+      const len=Math.max(0.01, frac*C-gap);
+      const color=GRADE_COLORS[g]||'#FF9500';
+      circles+=`<circle cx="84" cy="84" r="${R}" fill="none" stroke="${color}" stroke-width="${SW}" stroke-linecap="round" stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}"/>`;
+      acc+=frac*C;
+    });
+  }
+  document.getElementById('donut').innerHTML=`<svg width="168" height="168" viewBox="0 0 168 168">${circles}</svg>`;
+
+  const legend=document.getElementById('donut-legend');
+  if(total===0){ legend.innerHTML=`<div class="legend-row"><span class="legend-name" style="color:var(--ink-3)">No fills in this period yet</span></div>`; return; }
+  legend.innerHTML=grades.map(g=>{
+    const color=GRADE_COLORS[g]||'#FF9500', pct=Math.round(byGrade[g]/total*100);
+    return `<div class="legend-row"><span class="legend-dot" style="background:${color}"></span><span class="legend-name">${g}</span><span class="legend-val">SAR ${fmt(byGrade[g])} · ${pct}%</span></div>`;
+  }).join('');
+}
+
 async function loadReports(){
   if(!S.walletId) return;
   try{
     const [rc,st]=await Promise.all([req('GET','/v1/reports/reconciliation'),req('GET',`/v1/wallets/${S.walletId}/statement`)]);
     document.getElementById('r-tc').textContent=rc.topups.count;
-    document.getElementById('r-tt').textContent='SAR '+rc.topups.total_sar;
+    document.getElementById('r-tt').textContent='SAR '+fmt(rc.topups.total_sar);
     document.getElementById('r-fc').textContent=rc.fills.count;
-    document.getElementById('r-ft').textContent=rc.fills.total_litres+' L';
+    document.getElementById('r-ft').textContent=rc.fills.total_litres+' L dispensed';
     document.getElementById('r-sc').textContent=rc.authorizations.settled;
     document.getElementById('r-oh').textContent=rc.outstanding_holds.count+' holds open';
     const entries=st.entries??[];
+    renderDonut(entries);
     const tb=document.getElementById('stmt-body');
     if(!entries.length){ tb.innerHTML=`<tr><td colspan="4" style="padding:44px;text-align:center;color:var(--ink-3)">No transactions yet</td></tr>`; return; }
     const credit=t=>t==='TOPUP_CREDIT'||t==='REVERSAL';
     const badge={TOPUP_CREDIT:'<span class="chip chip-green">Top-up</span>',REVERSAL:'<span class="chip chip-amber">Reversal</span>'};
-    tb.innerHTML=entries.map(e=>{ const b=badge[e.type]||'<span class="chip chip-amber">Fill</span>'; const clr=credit(e.type)?'color:var(--green-dk)':''; return `<tr><td>${b}</td><td style="color:var(--ink-2)">${e.description}</td><td style="color:var(--ink-3)">${e.display_time}</td><td class="r" style="${clr}">${credit(e.type)?'+':'−'}SAR ${Math.abs(parseFloat(e.amount_sar)).toFixed(2)}</td></tr>`; }).join('');
+    tb.innerHTML=entries.map(e=>{ const b=badge[e.type]||'<span class="chip chip-amber">Fill</span>'; const clr=credit(e.type)?'color:var(--green-dk)':''; return `<tr><td>${b}</td><td style="color:var(--ink-2)">${e.description}</td><td style="color:var(--ink-3)">${e.display_time}</td><td class="r" style="${clr}">${credit(e.type)?'+':'−'}SAR ${fmt(Math.abs(parseFloat(e.amount_sar)))}</td></tr>`; }).join('');
   }catch(e){ console.error(e); }
 }
 
