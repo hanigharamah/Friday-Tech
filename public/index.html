@@ -169,7 +169,7 @@
       display: flex; align-items: center; justify-content: center;
       color: #fff; font-size: 17px; font-weight: 700; flex-shrink: 0;
     }
-    .brand-name { font-size: 18px; font-weight: 650; letter-spacing: -0.4px; }
+    .brand-name { font-family: 'Caveat', cursive; font-size: 26px; font-weight: 700; letter-spacing: 0; line-height: 1; }
     .brand-name b { font-weight: 700; }
 
     .nav { display: flex; flex-direction: column; gap: 2px; padding: 0 4px; }
@@ -439,6 +439,7 @@
     }
     .receipt-check svg { width: 28px; height: 28px; color: #fff; }
     @keyframes pop { from{transform:scale(.4);opacity:0} to{transform:scale(1);opacity:1} }
+    .receipt-thanks { font-family: 'Caveat', cursive; font-size: 30px; font-weight: 700; color: var(--ink); line-height: 1; margin-bottom: 12px; }
     .receipt-amt { font-size: 44px; font-weight: 700; letter-spacing: -2px; font-variant-numeric: tabular-nums; line-height: 1; }
     .receipt-sub { font-size: 14px; color: var(--ink-2); margin-top: 8px; }
     .receipt-rows { border-top: 0.5px solid var(--hairline-dk); }
@@ -627,8 +628,8 @@
   <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
   <aside class="sidebar glass glass--nav">
     <div class="brand">
-      <div class="brand-mark">ث</div>
-      <div class="brand-name">Thobii</div>
+      <div class="brand-mark">F</div>
+      <div class="brand-name">Friday Tech</div>
     </div>
     <nav class="nav">
       <div class="nav-item active" onclick="go('dashboard')">
@@ -822,6 +823,7 @@
           <div class="receipt glass">
             <div class="receipt-hero">
               <div class="receipt-check"><svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 14.5l4.5 4.5L21 9"/></svg></div>
+              <div class="receipt-thanks" id="r-thanks">Thank you</div>
               <div class="receipt-amt" id="r-amt">—</div>
               <div class="receipt-sub" id="r-sub">—</div>
             </div>
@@ -1077,6 +1079,7 @@ async function doSettle(){
   try{
     const res=await req('POST','/v1/fuel/settle',{authorization_id:authId,millilitres_dispensed:ml},`settle-${authId}`);
     const rc=res.receipt;
+    document.getElementById('r-thanks').textContent='Thank you, '+((S.name||'').split(' ')[0]||'there');
     document.getElementById('r-amt').textContent='SAR '+fmt(rc.amount_charged_sar);
     document.getElementById('r-sub').textContent=rc.subheadline;
     document.getElementById('r-rows').innerHTML=`
