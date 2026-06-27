@@ -2,6 +2,7 @@ import { prisma, lockWallet } from '../lib/db.js';
 import { getCurrentPrice } from './pricing.js';
 import { roundHalfUp } from '../lib/money.js';
 import { remainingVolumeAllowance, checkVelocity } from './limits.js';
+import { fuelGradeDisplay, gradeColorHint, displayTime, sarDisplay } from '../lib/format.js';
 import { FuelGrade } from '@prisma/client';
 
 const MAX_SINGLE_FILL_ML = parseInt(process.env.MAX_SINGLE_FILL_ML ?? '120000', 10);
@@ -21,37 +22,46 @@ export async function authorize(params: {
     include: { vehicle: { include: { user: { include: { wallets: true } } } } },
   });
 
-  if (!tag) throw Object.assign(new Error('RFID tag not found'), { statusCode: 404 });
+  if (!tag) {
+    throw Object.assign(new Error('RFID tag not recognized. Please check the tag and try again.'), { statusCode: 404 });
+  }
   if (tag.status !== 'ACTIVE') {
-    throw Object.assign(
-      new Error(`RFID tag is ${tag.status.toLowerCase()} — authorization denied`),
-      { statusCode: 422 }
-    );
+    const reason = tag.status === 'SUSPENDED'
+      ? 'This tag has been suspended. Contact support to re-activate it.'
+      : 'This tag has been reported lost. Contact support if this is an error.';
+    throw Object.assign(new Error(reason), { statusCode: 422 });
   }
 
   const vehicle = tag.vehicle;
   if (vehicle.status !== 'ACTIVE') {
-    throw Object.assign(new Error('Vehicle is suspended — authorization denied'), { statusCode: 422 });
+    throw Object.assign(
+      new Error('This vehicle has been suspended. Contact support to resolve this.'),
+      { statusCode: 422 }
+    );
   }
   if (vehicle.allowedGrade !== grade) {
+    const vehicleFuel = fuelGradeDisplay(vehicle.allowedGrade).display;
+    const pumpFuel = fuelGradeDisplay(grade).display;
     throw Object.assign(
-      new Error(`Misfuel: vehicle is configured for ${vehicle.allowedGrade}, pump requested ${grade}`),
+      new Error(`Misfuel prevented. This vehicle is configured for ${vehicleFuel}, but the pump is set to ${pumpFuel}. Please select the correct pump.`),
       { statusCode: 422 }
     );
   }
 
-  // Velocity check: reject if too many authorizations in the last hour
   await checkVelocity(vehicle.id, MAX_AUTH_PER_HOUR);
 
   const station = await prisma.station.findUnique({ where: { code: stationCode } });
-  if (!station) throw Object.assign(new Error('Station not found'), { statusCode: 404 });
+  if (!station) {
+    throw Object.assign(new Error('Station not found. Please try a different pump.'), { statusCode: 404 });
+  }
 
   const wallet = vehicle.user.wallets[0];
-  if (!wallet) throw Object.assign(new Error('No wallet found for user'), { statusCode: 422 });
+  if (!wallet) {
+    throw Object.assign(new Error('No wallet found for this account. Please contact support.'), { statusCode: 422 });
+  }
 
   const price = await getCurrentPrice(grade);
 
-  // Volume limit check (outside the wallet lock — read-only, non-critical timing)
   const allowanceMl = await remainingVolumeAllowance(
     vehicle.id,
     vehicle.dailyLitreLimitMl,
@@ -61,9 +71,6 @@ export async function authorize(params: {
   return await prisma.$transaction(async (tx) => {
     const locked = await lockWallet(tx, wallet.id);
 
-    // Anti-clone: only one active authorization per vehicle at a time.
-    // If the real car is already at a pump, a cloned tag hitting a second
-    // pump will find an existing AUTHORIZED row and be rejected here.
     const existingAuth = await tx.authorization.findFirst({
       where: {
         vehicleId: vehicle.id,
@@ -74,20 +81,21 @@ export async function authorize(params: {
     });
     if (existingAuth) {
       throw Object.assign(
-        new Error('Vehicle already has an active authorization — only one fill at a time is permitted'),
+        new Error('A fill is already in progress for this vehicle. Please wait for it to complete.'),
         { statusCode: 409 }
       );
     }
 
     const available = locked.balance_halalas - locked.held_halalas;
     if (available <= 0n) {
-      throw Object.assign(new Error('Insufficient balance'), { statusCode: 422 });
+      throw Object.assign(
+        new Error('Your wallet balance is too low to start a fill. Please top up and try again.'),
+        { statusCode: 422 }
+      );
     }
 
-    // floor(available * 1000 / price) = max ml the wallet can cover
     const rawMaxMl = (available * 1000n) / price.pricePerLitreHalalas;
 
-    // Apply caps in order: wallet, single-fill max, volume allowance
     let maxMillilitres = rawMaxMl > BigInt(MAX_SINGLE_FILL_ML)
       ? MAX_SINGLE_FILL_ML
       : Number(rawMaxMl);
@@ -98,8 +106,8 @@ export async function authorize(params: {
 
     if (maxMillilitres < MIN_FILL_ML) {
       const reason = allowanceMl !== null && allowanceMl < MIN_FILL_ML
-        ? 'Daily or weekly volume limit reached'
-        : 'Insufficient balance for minimum fill';
+        ? 'You have reached your daily or weekly volume limit. Your limit resets tomorrow.'
+        : 'Your wallet balance is too low for a minimum fill. Please top up and try again.';
       throw Object.assign(new Error(reason), { statusCode: 422 });
     }
 
@@ -136,12 +144,25 @@ export async function authorize(params: {
       },
     });
 
+    const fuelType = fuelGradeDisplay(grade);
+    const colorHint = gradeColorHint(grade);
+    const pricePerLitre = sarDisplay(price.pricePerLitreHalalas / 10n);
+
     return {
       authorization_id: auth.id,
-      max_millilitres: maxMillilitres,
+      status: 'AUTHORIZED',
+      status_display: 'Ready to fill',
+      status_color: '#30D158',
+      fuel_type: fuelType,
+      color_hint: colorHint,
+      station_name: station.name,
       max_litres: (maxMillilitres / 1000).toFixed(3),
+      max_millilitres: maxMillilitres,
+      price_per_litre_sar: pricePerLitre,
       price_per_litre_halalas: price.pricePerLitreHalalas.toString(),
-      expires_at: expiresAt,
+      reserved_sar: sarDisplay(reservedHalalas),
+      expires_at: expiresAt.toISOString(),
+      display_time: displayTime(expiresAt),
     };
   });
 }

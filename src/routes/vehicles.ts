@@ -7,16 +7,50 @@ import {
   UpdateTagStatusSchema,
 } from '../schemas/vehicle.js';
 import { expireStaleAuthorizations } from '../modules/expiry.js';
+import { fuelGradeDisplay, gradeColorHint } from '../lib/format.js';
+
+function formatVehicle(v: {
+  id: string;
+  plate: string;
+  allowedGrade: string;
+  status: string;
+  makeModel: string | null;
+  tankCapacityMl: number | null;
+  dailyLitreLimitMl: number | null;
+  weeklyLitreLimitMl: number | null;
+}) {
+  const fuelType = fuelGradeDisplay(v.allowedGrade);
+  const colorHint = gradeColorHint(v.allowedGrade);
+  return {
+    id: v.id,
+    plate: v.plate,
+    make_model: v.makeModel ?? null,
+    tank_capacity_ml: v.tankCapacityMl ?? null,
+    status: v.status,
+    fuel_type: fuelType,
+    color_hint: colorHint,
+    daily_litre_limit_ml: v.dailyLitreLimitMl ?? null,
+    weekly_litre_limit_ml: v.weeklyLitreLimitMl ?? null,
+  };
+}
 
 export async function vehicleRoutes(app: FastifyInstance) {
-  // Create vehicle (and optionally its first RFID tag)
   app.post('/v1/vehicles', async (request, reply) => {
     const parse = CreateVehicleSchema.safeParse(request.body);
     if (!parse.success) {
       return reply.status(400).send({ error: 'Validation failed', details: parse.error.issues });
     }
 
-    const { user_id, plate, allowed_grade, daily_litre_limit_ml, weekly_litre_limit_ml, tag_uid } = parse.data;
+    const {
+      user_id,
+      plate,
+      allowed_grade,
+      daily_litre_limit_ml,
+      weekly_litre_limit_ml,
+      make_model,
+      tank_capacity_ml,
+      tag_uid,
+    } = parse.data;
 
     const user = await prisma.user.findUnique({ where: { id: user_id } });
     if (!user) return reply.status(404).send({ error: 'User not found' });
@@ -29,6 +63,8 @@ export async function vehicleRoutes(app: FastifyInstance) {
         status: 'ACTIVE',
         dailyLitreLimitMl: daily_litre_limit_ml ?? null,
         weeklyLitreLimitMl: weekly_litre_limit_ml ?? null,
+        makeModel: make_model ?? null,
+        tankCapacityMl: tank_capacity_ml ?? null,
       },
     });
 
@@ -39,10 +75,9 @@ export async function vehicleRoutes(app: FastifyInstance) {
       });
     }
 
-    return reply.status(201).send({ vehicle, tag });
+    return reply.status(201).send({ vehicle: formatVehicle(vehicle), tag });
   });
 
-  // Update vehicle status (ACTIVE / SUSPENDED)
   app.patch('/v1/vehicles/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const parse = UpdateVehicleStatusSchema.safeParse(request.body);
@@ -58,10 +93,9 @@ export async function vehicleRoutes(app: FastifyInstance) {
       data: { status: parse.data.status },
     });
 
-    return reply.status(200).send(updated);
+    return reply.status(200).send(formatVehicle(updated));
   });
 
-  // Add an RFID tag to an existing vehicle
   app.post('/v1/vehicles/:id/tags', async (request, reply) => {
     const { id } = request.params as { id: string };
     const parse = CreateTagSchema.safeParse(request.body);
@@ -85,7 +119,6 @@ export async function vehicleRoutes(app: FastifyInstance) {
     }
   });
 
-  // Update tag status (ACTIVE / SUSPENDED / LOST)
   app.patch('/v1/tags/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const parse = UpdateTagStatusSchema.safeParse(request.body);
@@ -104,7 +137,6 @@ export async function vehicleRoutes(app: FastifyInstance) {
     return reply.status(200).send(updated);
   });
 
-  // Expiry worker endpoint — expire stale authorizations and release holds
   app.post('/v1/admin/expire-authorizations', async (_request, reply) => {
     const result = await expireStaleAuthorizations();
     return reply.status(200).send(result);

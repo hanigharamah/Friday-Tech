@@ -51,6 +51,8 @@ model Vehicle {
   status               VehicleStatus   @default(ACTIVE)
   dailyLitreLimitMl    Int?            @map("daily_litre_limit_ml")
   weeklyLitreLimitMl   Int?            @map("weekly_litre_limit_ml")
+  makeModel            String?         @map("make_model")
+  tankCapacityMl       Int?            @map("tank_capacity_ml")
   user                 User            @relation(fields: [userId], references: [id])
   rfidTags             RfidTag[]
   authorizations       Authorization[]

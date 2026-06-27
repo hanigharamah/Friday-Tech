@@ -56,7 +56,7 @@ describe('Velocity rule', () => {
     // 6th authorization should be rejected by velocity rule
     await expect(
       authorize({ tagUid: tag.tagUid, stationCode: station.code, grade: 'GASOLINE_95' })
-    ).rejects.toThrow(/velocity/i);
+    ).rejects.toThrow(/fill limit|velocity/i);
   });
 
   it('allows authorization when previous ones are outside the 1-hour window', async () => {

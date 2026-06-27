@@ -144,7 +144,7 @@ describe('Scenario 4: Emergency authorization reversal', () => {
     await settle({ authorizationId: auth.authorization_id, millilitresDispensed: 10_000 });
 
     // Too late — fuel already flowed
-    await expect(reverseAuthorization(auth.authorization_id)).rejects.toThrow(/SETTLED/);
+    await expect(reverseAuthorization(auth.authorization_id)).rejects.toThrow(/settled/i);
   });
 
   it('cannot reverse an already-reversed authorization', async () => {
@@ -153,7 +153,7 @@ describe('Scenario 4: Emergency authorization reversal', () => {
     const auth = await authorize({ tagUid: tag.tagUid, stationCode: station.code, grade: 'GASOLINE_95' });
     await reverseAuthorization(auth.authorization_id);
 
-    await expect(reverseAuthorization(auth.authorization_id)).rejects.toThrow(/REVERSED/);
+    await expect(reverseAuthorization(auth.authorization_id)).rejects.toThrow(/reversed/i);
   });
 });
 
@@ -170,7 +170,7 @@ describe('Scenario 5: Cloned tag — one active authorization per vehicle', () =
     // Clone (same tag UID resolves to same vehicle) tries pump B simultaneously
     await expect(
       authorize({ tagUid: tag.tagUid, stationCode: station.code, grade: 'GASOLINE_95' })
-    ).rejects.toThrow(/active authorization/i);
+    ).rejects.toThrow(/fill is already in progress|active authorization/i);
   });
 
   it('allows a new fill after the first is settled', async () => {
@@ -242,6 +242,6 @@ describe('Scenario 6: Rapid drain — velocity rule limits damage window', () =>
     // 6th attempt — blocked by velocity rule
     await expect(
       authorize({ tagUid: tag.tagUid, stationCode: station.code, grade: 'GASOLINE_95' })
-    ).rejects.toThrow(/velocity/i);
+    ).rejects.toThrow(/fill limit|velocity/i);
   });
 });

@@ -50,13 +50,26 @@ export async function remainingVolumeAllowance(
  */
 export async function checkVelocity(vehicleId: string, maxPerHour: number): Promise<void> {
   const since = new Date(Date.now() - 3_600_000);
+  const oldest = await prisma.authorization.findFirst({
+    where: { vehicleId, createdAt: { gte: since } },
+    orderBy: { createdAt: 'asc' },
+    select: { createdAt: true },
+  });
   const count = await prisma.authorization.count({
     where: { vehicleId, createdAt: { gte: since } },
   });
   if (count >= maxPerHour) {
+    const retryAt = oldest
+      ? new Date(oldest.createdAt.getTime() + 3_600_000)
+      : new Date(Date.now() + 3_600_000);
+    const retryTime = retryAt.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
     throw Object.assign(
-      new Error(`Velocity limit: ${count} authorizations in the last hour (max ${maxPerHour})`),
-      { statusCode: 429 }
+      new Error(`You've reached the fill limit for this hour. You can fill up again after ${retryTime}.`),
+      { statusCode: 429, retry_after: retryAt.toISOString() }
     );
   }
 }

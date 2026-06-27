@@ -1,14 +1,6 @@
 import { prisma, lockWallet } from '../lib/db.js';
+import { displayTime, sarDisplay } from '../lib/format.js';
 
-/**
- * Reverses an AUTHORIZED authorization — used when a vehicle is reported
- * stolen and the owner wants to cancel an in-progress hold immediately.
- *
- * Option A behaviour: an authorization that has already been SETTLED is
- * not reversed here (the fuel has already flowed). Only AUTHORIZED holds
- * can be reversed. The caller should also suspend the tag via PATCH /v1/tags/:id
- * to block future fills.
- */
 export async function reverseAuthorization(authorizationId: string) {
   const auth = await prisma.authorization.findUnique({
     where: { id: authorizationId },
@@ -17,7 +9,7 @@ export async function reverseAuthorization(authorizationId: string) {
   if (!auth) throw Object.assign(new Error('Authorization not found'), { statusCode: 404 });
   if (auth.status !== 'AUTHORIZED') {
     throw Object.assign(
-      new Error(`Cannot reverse authorization in status ${auth.status} — only AUTHORIZED holds can be reversed`),
+      new Error(`This authorization is already ${auth.status.toLowerCase()} and cannot be reversed.`),
       { statusCode: 422 }
     );
   }
@@ -25,15 +17,13 @@ export async function reverseAuthorization(authorizationId: string) {
   return await prisma.$transaction(async (tx) => {
     await lockWallet(tx, auth.walletId);
 
-    // Re-check status inside the transaction — another request may have settled
-    // or expired this authorization between our initial read and the lock
     const current = await tx.authorization.findUnique({
       where: { id: auth.id },
       select: { status: true },
     });
     if (current?.status !== 'AUTHORIZED') {
       throw Object.assign(
-        new Error(`Authorization is now ${current?.status} — cannot reverse`),
+        new Error(`This authorization is now ${current?.status?.toLowerCase()} and cannot be reversed.`),
         { statusCode: 422 }
       );
     }
@@ -52,16 +42,28 @@ export async function reverseAuthorization(authorizationId: string) {
       data: {
         walletId: auth.walletId,
         type: 'REVERSAL',
-        amountHalalas: auth.reservedHalalas, // positive — funds returned to available
+        amountHalalas: auth.reservedHalalas,
         authorizationId: auth.id,
         reference: `reverse:${auth.id}`,
       },
     });
 
+    const updatedWallet = await tx.wallet.findUnique({
+      where: { id: auth.walletId },
+      select: { balanceHalalas: true, heldHalalas: true },
+    });
+    const walletBalance = updatedWallet!.balanceHalalas;
+    const now = new Date();
+
     return {
       authorization_id: auth.id,
       status: 'REVERSED',
+      amount_released_sar: sarDisplay(auth.reservedHalalas),
       released_halalas: auth.reservedHalalas.toString(),
+      wallet_balance_sar: sarDisplay(walletBalance),
+      assurance: 'No further fills can be made with this tag until it is re-activated.',
+      display_time: displayTime(now),
+      reversed_at: now.toISOString(),
     };
   });
 }

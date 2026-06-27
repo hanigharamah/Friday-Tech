@@ -34,8 +34,14 @@ export async function createUser(params: {
       wallet: {
         id: wallet.id,
         balance_halalas: '0',
+        balance_sar: '0.00',
         available_halalas: '0',
+        available_sar: '0.00',
         currency: wallet.currency,
+      },
+      next_step: {
+        action: 'add_vehicle',
+        message: 'Register your vehicle to link your RFID tag.',
       },
     };
   });

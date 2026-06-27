@@ -6,7 +6,9 @@ export const CreateVehicleSchema = z.object({
   allowed_grade: z.enum(['GASOLINE_91', 'GASOLINE_95', 'DIESEL']),
   daily_litre_limit_ml: z.number().int().positive().nullable().optional(),
   weekly_litre_limit_ml: z.number().int().positive().nullable().optional(),
-  tag_uid: z.string().min(1).optional(), // optionally attach a tag at creation
+  make_model: z.string().min(1).optional(),
+  tank_capacity_ml: z.number().int().positive().optional(),
+  tag_uid: z.string().min(1).optional(),
 });
 
 export const CreateTagSchema = z.object({

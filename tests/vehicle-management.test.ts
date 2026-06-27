@@ -81,8 +81,8 @@ describe('POST /v1/vehicles', () => {
 
     expect(res.statusCode).toBe(201);
     const v = res.json().vehicle;
-    expect(v.dailyLitreLimitMl).toBe(60_000);
-    expect(v.weeklyLitreLimitMl).toBe(300_000);
+    expect(v.daily_litre_limit_ml).toBe(60_000);
+    expect(v.weekly_litre_limit_ml).toBe(300_000);
   });
 
   it('rejects invalid grade', async () => {

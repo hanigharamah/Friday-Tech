@@ -135,7 +135,7 @@ describe('Authorization state machine', () => {
 
     await expect(
       settle({ authorizationId: auth.authorization_id, millilitresDispensed: 5_000 })
-    ).rejects.toThrow(/SETTLED/);
+    ).rejects.toThrow(/settled/i);
   });
 });
 
@@ -148,7 +148,7 @@ describe('Insufficient balance', () => {
 
     await expect(
       authorize({ tagUid: tag.tagUid, stationCode: station.code, grade: 'GASOLINE_95' })
-    ).rejects.toThrow(/insufficient/i);
+    ).rejects.toThrow(/balance is too low|insufficient/i);
   });
 });
 

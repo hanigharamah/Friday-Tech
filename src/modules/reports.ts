@@ -1,4 +1,5 @@
 import { prisma } from '../lib/db.js';
+import { displayTime } from '../lib/format.js';
 
 function sarStr(halalas: bigint): string {
   const sign = halalas < 0n ? '-' : '';
@@ -171,6 +172,7 @@ export async function walletStatement(walletId: string, from?: string, to?: stri
         description,
         amount_sar: sarStr(e.amountHalalas),
         amount_halalas: e.amountHalalas.toString(),
+        display_time: displayTime(e.createdAt),
         created_at: e.createdAt.toISOString(),
       };
     }),
@@ -211,6 +213,7 @@ export async function vehicleConsumption(vehicleId: string, from?: string, to?: 
     generated_at: new Date().toISOString(),
     fills: txs.map((tx) => ({
       date: tx.createdAt.toISOString(),
+      display_time: displayTime(tx.createdAt),
       station: tx.authorization.station?.name ?? tx.authorization.station?.code ?? 'Unknown',
       litres: (tx.millilitresDispensed / 1000).toFixed(3),
       amount_sar: sarStr(tx.capturedHalalas),
