@@ -919,6 +919,11 @@
 
 <script>
 const API = '';
+// DEMO mode — runs entirely in the browser against an in-memory mock of the
+// Thobii API, so the dashboard, fills, charts and receipt all work with no
+// backend or database (e.g. on a static Vercel deploy). Flip to false to talk
+// to the real Fastify API instead.
+const DEMO = true;
 let S = {};
 let topupAmt = 200;
 
@@ -943,9 +948,70 @@ function countUp(el, to){
 }
 
 async function req(method, path, body, ikey){
+  if(DEMO) return mockReq(method, path, body);
   const h={'Content-Type':'application/json'}; if(ikey) h['Idempotency-Key']=ikey;
   const r=await fetch(API+path,{method,headers:h,body:body?JSON.stringify(body):undefined});
   const d=await r.json(); if(!r.ok) throw Object.assign(new Error(d.error||'Error'),{data:d}); return d;
+}
+
+/* ── In-browser mock API ──────────────────────────────────────────────────────
+   Mirrors the real endpoints' shapes (format.ts helpers ported below) and keeps
+   wallet state in localStorage so balances persist across reloads. Demo allows
+   any fuel grade so the orb colours and the donut split can be explored. */
+const MK='thobii_mock5', PRICE=150, STATION='Aldrees Riyadh North';
+let M; try{ M=JSON.parse(localStorage.getItem(MK)); }catch{} M=M||{balance:0,held:0,entries:[],auths:{},grade:'GASOLINE_95'};
+function mkSave(){ localStorage.setItem(MK, JSON.stringify(M)); }
+function mGrade(g){ return ({GASOLINE_91:{code:'GASOLINE_91',display:'Gasoline 91'},GASOLINE_95:{code:'GASOLINE_95',display:'Gasoline 95'},DIESEL:{code:'DIESEL',display:'Diesel'}})[g]||{code:g,display:g}; }
+function mColor(g){ return ({GASOLINE_91:{background:'#1C3A5E',foreground:'#FFFFFF',name:'Navy'},GASOLINE_95:{background:'#FF9F0A',foreground:'#000000',name:'Amber Gold'},DIESEL:{background:'#30D158',foreground:'#000000',name:'Green'}})[g]||{background:'#8E8E93',foreground:'#FFFFFF',name:'Gray'}; }
+function mSar(h){ const s=h<0?'-':''; const a=Math.abs(h); return s+Math.floor(a/100)+'.'+String(a%100).padStart(2,'0'); }
+function mTime(d){ const now=new Date(), ds=new Date(d.getFullYear(),d.getMonth(),d.getDate()), t0=new Date(now.getFullYear(),now.getMonth(),now.getDate()); const t=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}); if(ds.getTime()===t0.getTime()) return `Today at ${t}`; if(ds.getTime()===t0.getTime()-86400000) return `Yesterday at ${t}`; return `${d.toLocaleString('en-US',{month:'long'})} ${d.getDate()} at ${t}`; }
+let mFillN=0; function mFillRef(d){ mFillN=(mFillN+1)%10000; return `FILL-${d.toISOString().slice(0,10)}-${String(mFillN).padStart(4,'0')}`; }
+function mUid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+
+async function mockReq(method, path, body){
+  await new Promise(r=>setTimeout(r, 110)); // touch of latency for realism
+  if(method==='POST' && path==='/v1/users'){
+    M={balance:0,held:0,entries:[],auths:{},grade:'GASOLINE_95'}; mkSave();
+    const id=mUid();
+    return { user:{id,name:body.name,email:body.email,virtual_iban:'SA'+Date.now()}, wallet:{id:'wal_'+id} };
+  }
+  if(method==='POST' && path==='/v1/wallet/topups/app'){
+    M.balance += body.amount_halalas;
+    M.entries.unshift({ id:mUid(), type:'TOPUP_CREDIT', amount_halalas:String(body.amount_halalas), amount_sar:mSar(body.amount_halalas), description:'Top-up via '+(body.method==='APPLE_PAY'?'Apple Pay':'Card'), display_time:mTime(new Date()), created_at:new Date().toISOString() });
+    mkSave(); return { ok:true };
+  }
+  if(method==='POST' && path==='/v1/vehicles'){
+    M.grade=body.allowed_grade; mkSave();
+    return { vehicle:{ id:'veh_'+mUid(), plate:body.plate, make_model:body.make_model||null, tank_capacity_ml:body.tank_capacity_ml||null, status:'ACTIVE', fuel_type:mGrade(body.allowed_grade), color_hint:mColor(body.allowed_grade) }, tag: body.tag_uid?{tagUid:body.tag_uid,status:'ACTIVE'}:null };
+  }
+  if(method==='GET' && /^\/v1\/wallets\/[^/]+$/.test(path)){
+    const avail=M.balance-M.held;
+    return { balance_halalas:String(M.balance), balance_sar:mSar(M.balance), held_halalas:String(M.held), available_halalas:String(avail), available_sar:mSar(avail), currency:'SAR' };
+  }
+  if(method==='GET' && /\/statement$/.test(path)){ return { entries:M.entries.slice() }; }
+  if(method==='POST' && path==='/v1/fuel/authorize'){
+    const grade=body.grade, avail=M.balance-M.held;
+    if(avail < PRICE) throw Object.assign(new Error('Your balance is too low to authorize a fill. Top up to continue.'),{data:{}});
+    const maxMl=Math.min(120000, Math.floor(avail/PRICE*1000)), aid='auth_'+mUid();
+    M.auths[aid]={grade,maxMl}; mkSave();
+    const exp=new Date(Date.now()+300000);
+    return { authorization_id:aid, status:'AUTHORIZED', status_display:'Ready to fill', fuel_type:mGrade(grade), color_hint:mColor(grade), station_name:STATION, max_litres:(maxMl/1000).toFixed(3), max_millilitres:maxMl, price_per_litre_sar:mSar(PRICE), price_per_litre_halalas:PRICE, reserved_sar:mSar(Math.round(maxMl/1000*PRICE)), expires_at:exp.toISOString(), display_time:mTime(exp) };
+  }
+  if(method==='POST' && path==='/v1/fuel/settle'){
+    const a=M.auths[body.authorization_id], grade=a?a.grade:M.grade;
+    const litres=body.millilitres_dispensed/1000, captured=Math.round(litres*PRICE), gd=mGrade(grade);
+    M.balance-=captured;
+    M.entries.unshift({ id:mUid(), type:'CAPTURE', amount_halalas:String(-captured), amount_sar:mSar(-captured), description:`Fuel fill — ${gd.display} · ${litres.toFixed(3)} L · ${STATION}`, display_time:mTime(new Date()), created_at:new Date().toISOString(), _litres:litres });
+    if(a) delete M.auths[body.authorization_id]; mkSave();
+    const fills=M.entries.filter(e=>e.type==='CAPTURE'), spent=fills.reduce((s,e)=>s+Math.abs(parseInt(e.amount_halalas)),0), now=new Date();
+    return { receipt:{ amount_charged_sar:mSar(captured), subheadline:`${litres.toFixed(3)} L of ${gd.display} at ${STATION}`, station_name:STATION, fuel_type:gd, quantity_litres:litres.toFixed(3), unit_price_sar:mSar(PRICE), new_balance_sar:mSar(M.balance), fill_reference:mFillRef(now), display_time:mTime(now) }, insights:{ fills_this_month:fills.length, spent_this_month_sar:mSar(spent) } };
+  }
+  if(method==='GET' && path==='/v1/reports/reconciliation'){
+    const tops=M.entries.filter(e=>e.type==='TOPUP_CREDIT'), fills=M.entries.filter(e=>e.type==='CAPTURE');
+    const tTot=tops.reduce((s,e)=>s+parseInt(e.amount_halalas),0), fTot=fills.reduce((s,e)=>s+Math.abs(parseInt(e.amount_halalas)),0), lit=fills.reduce((s,e)=>s+(e._litres||0),0);
+    return { topups:{count:tops.length,total_sar:mSar(tTot)}, fills:{count:fills.length,total_litres:lit.toFixed(3),total_sar:mSar(fTot)}, authorizations:{settled:fills.length}, outstanding_holds:{count:0} };
+  }
+  throw new Error('Mock: unhandled '+method+' '+path);
 }
 
 async function boot(){
@@ -1112,7 +1178,8 @@ async function doSettle(){
   try{
     const res=await req('POST','/v1/fuel/settle',{authorization_id:authId,millilitres_dispensed:ml},`settle-${authId}`);
     const rc=res.receipt;
-    if(S.colorHint) document.getElementById('fuel-orb').style.setProperty('--fuel', S.colorHint.background);
+    const fuelColor=({GASOLINE_91:'#1C3A5E',GASOLINE_95:'#FF9F0A',DIESEL:'#30D158'})[rc.fuel_type&&rc.fuel_type.code]||(S.colorHint&&S.colorHint.background)||'#FF9500';
+    document.getElementById('fuel-orb').style.setProperty('--fuel', fuelColor);
     document.getElementById('r-thanks').textContent='Thank you, '+((S.name||'').split(' ')[0]||'there');
     document.getElementById('r-amt').textContent='SAR '+fmt(rc.amount_charged_sar);
     document.getElementById('r-sub').textContent=rc.subheadline;
