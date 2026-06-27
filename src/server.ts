@@ -3,6 +3,8 @@ import { fuelRoutes } from './routes/fuel.js';
 import { walletRoutes } from './routes/wallet.js';
 import { vehicleRoutes } from './routes/vehicles.js';
 import { simRoutes } from './routes/sim.js';
+import { userRoutes } from './routes/user.js';
+import { reportRoutes } from './routes/reports.js';
 
 export async function buildApp() {
   const app = Fastify({ logger: true });
@@ -11,6 +13,8 @@ export async function buildApp() {
   await app.register(walletRoutes);
   await app.register(vehicleRoutes);
   await app.register(simRoutes);
+  await app.register(userRoutes);
+  await app.register(reportRoutes);
 
   return app;
 }
