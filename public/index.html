@@ -4,403 +4,507 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Thobii</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900;1,14..32,300..900&display=swap" rel="stylesheet">
   <style>
+    /* ════════════════════════════════════════════════════════════════════════
+       THOBII — Liquid Glass UI
+       Design language: Apple WWDC25 Liquid Glass
+       · Glass material lives on the navigation/control layer only
+       · Content stays solid and legible (hierarchy via material opacity)
+       · Ambient gradient gives the glass something to refract & lens
+       · Concentric corner radii · 8pt spacing grid · SF Pro typography
+       ════════════════════════════════════════════════════════════════════════ */
+
     :root {
-      --bg:        #F5F5F7;
-      --surface:   #FFFFFF;
-      --amber:     #F59E0B;
-      --amber-lt:  #FEF3C7;
-      --amber-dk:  #D97706;
-      --green:     #16A34A;
-      --green-lt:  #DCFCE7;
-      --red:       #DC2626;
-      --red-lt:    #FEE2E2;
-      --ink:       #111111;
-      --ink-2:     #6B6B6B;
-      --ink-3:     #B4B4B4;
-      --rule:      rgba(0,0,0,0.07);
-      --rule-lt:   rgba(0,0,0,0.04);
+      /* Brand */
+      --amber:     #FF9500;   /* iOS systemOrange */
+      --amber-dk:  #C76E00;
+      --amber-tint:rgba(255,149,0,0.14);
+      --green:     #34C759;   /* iOS systemGreen */
+      --green-dk:  #248A3D;
+      --red:       #FF3B30;
+
+      /* Ink — true black-grey, like iOS labels */
+      --ink:    #1C1C1E;
+      --ink-2:  rgba(60,60,67,0.62);   /* secondaryLabel */
+      --ink-3:  rgba(60,60,67,0.38);   /* tertiaryLabel  */
+      --ink-4:  rgba(60,60,67,0.20);
+
+      /* Glass tints */
+      --glass-nav:     rgba(255,255,255,0.50);
+      --glass-content: rgba(255,255,255,0.66);
+      --glass-bright:  rgba(255,255,255,0.78);
+      --hairline:      rgba(255,255,255,0.55);
+      --hairline-dk:   rgba(0,0,0,0.06);
+
+      /* Specular + depth shadow stack (the "lit glass" look) */
+      --spec:
+        inset 0 1px 0 0 rgba(255,255,255,0.85),
+        inset 0 0 0 1px rgba(255,255,255,0.30),
+        inset 0 -8px 24px -12px rgba(255,255,255,0.5);
+      --lift:
+        0 1px 1px rgba(40,28,8,0.04),
+        0 8px 20px -6px rgba(40,28,8,0.14),
+        0 24px 48px -16px rgba(40,28,8,0.16);
+
+      /* Concentric radii (8pt-derived) */
+      --r-xl: 30px;
+      --r-lg: 22px;
+      --r-md: 16px;
+      --r-sm: 12px;
+
+      --blur: 28px;
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    * , *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { -webkit-text-size-adjust: 100%; }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', sans-serif;
       -webkit-font-smoothing: antialiased;
-      background: var(--bg);
+      text-rendering: optimizeLegibility;
       color: var(--ink);
       min-height: 100vh;
-      display: flex;
       font-size: 15px;
+      line-height: 1.4;
+      letter-spacing: -0.01em;
+      overflow-x: hidden;
     }
 
-    /* ─── Sidebar ─────────────────────────────────────────────────────────── */
+    /* ── Ambient environment ── the world the glass lives in ────────────────── */
+    .ambient {
+      position: fixed; inset: 0; z-index: -2;
+      background:
+        radial-gradient(820px 640px at 10% 2%,  rgba(255,193,110,0.78), transparent 58%),
+        radial-gradient(760px 560px at 92% 12%, rgba(255,138,76,0.62),  transparent 55%),
+        radial-gradient(680px 620px at 82% 96%, rgba(150,176,255,0.40), transparent 60%),
+        radial-gradient(720px 680px at 18% 96%, rgba(255,214,150,0.62), transparent 60%),
+        linear-gradient(180deg, #FBF7F2 0%, #F4F0EB 100%);
+    }
+    /* drifting light blooms — slow, organic, sub-perceptual */
+    .ambient::before, .ambient::after {
+      content: ''; position: absolute; border-radius: 50%; filter: blur(60px);
+    }
+    .ambient::before {
+      width: 540px; height: 540px; top: -120px; left: 8%;
+      background: radial-gradient(circle, rgba(255,170,70,0.40), transparent 70%);
+      animation: drift1 26s ease-in-out infinite;
+    }
+    .ambient::after {
+      width: 460px; height: 460px; bottom: -100px; right: 12%;
+      background: radial-gradient(circle, rgba(120,150,255,0.30), transparent 70%);
+      animation: drift2 32s ease-in-out infinite;
+    }
+    @keyframes drift1 { 0%,100%{ transform: translate(0,0) scale(1);} 50%{ transform: translate(60px,40px) scale(1.12);} }
+    @keyframes drift2 { 0%,100%{ transform: translate(0,0) scale(1);} 50%{ transform: translate(-50px,-30px) scale(1.1);} }
+
+    /* film grain — the subtle texture Apple wallpapers always have */
+    .grain {
+      position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 0.035;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    /* ════════════════════════════ GLASS MATERIAL ════════════════════════════ */
+    .glass {
+      position: relative;
+      background: var(--glass-content);
+      border-radius: var(--r-lg);
+      box-shadow: var(--spec), var(--lift);
+      -webkit-backdrop-filter: blur(var(--blur)) saturate(180%) brightness(1.04);
+      backdrop-filter: blur(var(--blur)) saturate(180%) brightness(1.04);
+      border: 0.5px solid var(--hairline);
+    }
+    .glass--nav { background: var(--glass-nav); }
+
+    /* Liquid refraction — feDisplacementMap warps the lensed backdrop at the edges.
+       Applied to a backing layer so foreground text stays razor-sharp. */
+    .glass--liquid { isolation: isolate; overflow: hidden; }
+    .glass--liquid > .lens {
+      content: ''; position: absolute; inset: 0; z-index: 0; border-radius: inherit;
+      -webkit-backdrop-filter: blur(3px) saturate(150%);
+      backdrop-filter: blur(3px) saturate(150%);
+      filter: url(#liquid-lens);
+    }
+    .glass--liquid > * { position: relative; z-index: 1; }
+
+    /* ════════════════════════════ APP SHELL ═════════════════════════════════ */
+    .app { display: flex; min-height: 100vh; padding: 14px; gap: 14px; }
+
+    /* ── Sidebar — a floating glass rail ─────────────────────────────────────── */
     .sidebar {
-      width: 230px;
-      min-width: 230px;
-      background: var(--surface);
-      border-right: 1px solid var(--rule);
-      display: flex;
-      flex-direction: column;
-      position: fixed;
-      top: 0; left: 0; bottom: 0;
-      z-index: 200;
-      overflow-y: auto;
+      width: 232px; min-width: 232px;
+      position: sticky; top: 14px;
+      height: calc(100vh - 28px);
+      display: flex; flex-direction: column;
+      padding: 8px;
+      border-radius: var(--r-xl);
+      z-index: 60;
     }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 24px 20px 20px;
-    }
+    .brand { display: flex; align-items: center; gap: 11px; padding: 14px 12px 16px; }
     .brand-mark {
-      width: 32px; height: 32px;
-      background: var(--amber);
-      border-radius: 8px;
+      width: 36px; height: 36px; border-radius: 11px;
+      background: linear-gradient(140deg, #FFC062, #FF9500 55%, #E97200);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 4px 12px rgba(255,140,0,0.40);
       display: flex; align-items: center; justify-content: center;
-      font-size: 15px; font-weight: 800; color: #fff;
-      letter-spacing: -0.5px;
-      flex-shrink: 0;
+      color: #fff; font-size: 17px; font-weight: 700; flex-shrink: 0;
     }
-    .brand-name { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+    .brand-name { font-size: 18px; font-weight: 650; letter-spacing: -0.4px; }
+    .brand-name b { font-weight: 700; }
 
-    .nav { padding: 4px 10px; flex: 1; }
+    .nav { display: flex; flex-direction: column; gap: 2px; padding: 0 4px; }
     .nav-item {
-      display: flex; align-items: center; gap: 9px;
-      padding: 9px 11px;
-      border-radius: 9px;
-      cursor: pointer;
-      color: var(--ink-2);
-      font-size: 14px; font-weight: 500;
-      transition: background 0.1s, color 0.1s;
-      margin-bottom: 1px;
-      user-select: none;
+      display: flex; align-items: center; gap: 11px;
+      padding: 10px 12px; border-radius: 13px;
+      color: var(--ink-2); font-size: 14.5px; font-weight: 500;
+      cursor: pointer; user-select: none;
+      transition: background .18s ease, color .18s ease, box-shadow .18s ease;
     }
-    .nav-item:hover { background: var(--bg); color: var(--ink); }
-    .nav-item.active { background: var(--amber-lt); color: #92400E; font-weight: 600; }
+    .nav-item svg { width: 19px; height: 19px; flex-shrink: 0; opacity: 0.85; }
+    .nav-item:hover { color: var(--ink); background: rgba(255,255,255,0.45); }
+    .nav-item.active {
+      color: var(--amber-dk); font-weight: 600;
+      background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.5));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 2px 8px rgba(40,28,8,0.10);
+    }
+    .nav-item.active svg { opacity: 1; }
 
-    .sidebar-foot {
-      padding: 16px 20px;
-      border-top: 1px solid var(--rule);
-      display: flex; align-items: center; gap: 7px;
-      font-size: 12px; color: var(--ink-3);
-    }
-    .live-dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: #22C55E; flex-shrink: 0;
-    }
-
-    /* ─── Topbar ──────────────────────────────────────────────────────────── */
-    .topbar {
-      position: fixed; top: 0; left: 230px; right: 0; height: 54px;
-      background: rgba(245,245,247,0.9);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--rule);
-      display: flex; align-items: center;
-      padding: 0 28px;
-      z-index: 100;
-    }
-    .topbar-title { font-size: 14px; font-weight: 600; color: var(--ink); }
-    .user-pill {
-      margin-left: auto;
+    .nav-foot {
+      margin-top: auto; padding: 14px 14px 10px;
       display: flex; align-items: center; gap: 8px;
-      padding: 5px 12px 5px 5px;
-      background: var(--surface);
-      border-radius: 100px;
-      border: 1px solid var(--rule);
-      cursor: pointer;
-      font-size: 13px; font-weight: 500; color: var(--ink);
+      font-size: 12px; color: var(--ink-3); font-weight: 500;
+    }
+    .live { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 0 rgba(52,199,89,0.5); animation: live 2.4s ease-out infinite; }
+    @keyframes live { 0%{box-shadow:0 0 0 0 rgba(52,199,89,0.45);} 70%,100%{box-shadow:0 0 0 6px rgba(52,199,89,0);} }
+
+    /* ── Content column ──────────────────────────────────────────────────────── */
+    .content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+
+    /* Top bar — glass, floating */
+    .topbar {
+      position: sticky; top: 14px; z-index: 50;
+      display: flex; align-items: center;
+      padding: 11px 18px; border-radius: var(--r-lg);
+    }
+    .topbar-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+    .user-pill {
+      margin-left: auto; display: flex; align-items: center; gap: 9px;
+      padding: 5px 14px 5px 5px; border-radius: 100px;
+      background: rgba(255,255,255,0.6);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 1px 4px rgba(40,28,8,0.08);
+      font-size: 13.5px; font-weight: 550; cursor: pointer;
     }
     .av {
-      width: 26px; height: 26px; border-radius: 50%;
-      background: var(--amber);
+      width: 28px; height: 28px; border-radius: 50%;
+      background: linear-gradient(140deg, #FFC062, #FF8A00);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
       display: flex; align-items: center; justify-content: center;
-      font-size: 9px; font-weight: 800; color: #fff; letter-spacing: 0.3px;
+      color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 0.3px;
     }
 
-    /* ─── Main ────────────────────────────────────────────────────────────── */
-    .main { margin-left: 230px; flex: 1; padding: 78px 32px 56px; min-width: 0; }
-
+    .scroll { padding: 2px; }
     .page { display: none; }
-    .page.active { display: block; animation: slide-up 0.16s ease; }
-    @keyframes slide-up {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: none; }
+    .page.active { display: block; animation: enter .4s cubic-bezier(.22,1,.36,1); }
+    @keyframes enter { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: none; } }
+
+    /* ── Page heading ──────────────────────────────────────────────────────── */
+    .heading { margin: 8px 4px 18px; }
+    .heading h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.8px; line-height: 1.05; }
+    .heading p { font-size: 14px; color: var(--ink-3); margin-top: 4px; font-weight: 450; }
+
+    /* ════════════════════════════ BALANCE HERO ══════════════════════════════ */
+    .hero {
+      padding: 30px 32px 26px;
+      border-radius: var(--r-xl);
+      background: var(--glass-bright);
     }
-
-    /* ─── Balance hero ────────────────────────────────────────────────────── */
-    .balance-section {
-      background: var(--surface);
-      border-radius: 20px;
-      padding: 32px;
-      margin-bottom: 16px;
-      border: 1px solid var(--rule-lt);
+    .hero-eyebrow {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 600; letter-spacing: 0.4px;
+      color: var(--ink-2); text-transform: uppercase; margin-bottom: 14px;
     }
-    .balance-label { font-size: 12px; font-weight: 600; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
-    .balance-row { display: flex; align-items: flex-start; gap: 0; margin-bottom: 4px; }
-    .balance-cur { font-size: 22px; font-weight: 600; color: var(--ink-2); margin-top: 8px; margin-right: 6px; }
-    .balance-num { font-size: 62px; font-weight: 800; letter-spacing: -3px; color: var(--ink); line-height: 1; font-variant-numeric: tabular-nums; }
-    .balance-avail { font-size: 13px; color: var(--ink-3); margin-bottom: 24px; }
-    .balance-actions { display: flex; gap: 10px; }
-    .balance-iban { font-size: 12px; color: var(--ink-3); letter-spacing: 1.5px; font-variant-numeric: tabular-nums; margin-top: 20px; }
+    .hero-eyebrow svg { width: 15px; height: 15px; opacity: 0.6; }
+    .hero-amount { display: flex; align-items: baseline; gap: 8px; }
+    .hero-cur { font-size: 24px; font-weight: 600; color: var(--ink-2); }
+    .hero-num { font-size: 66px; font-weight: 700; letter-spacing: -3.5px; line-height: 0.95; font-variant-numeric: tabular-nums; }
+    .hero-avail { font-size: 13.5px; color: var(--ink-2); margin-top: 8px; font-weight: 450; }
+    .hero-bottom { display: flex; align-items: flex-end; justify-content: space-between; margin-top: 24px; }
+    .hero-actions { display: flex; gap: 9px; }
+    .hero-iban { font-size: 12px; letter-spacing: 1.6px; color: var(--ink-3); font-variant-numeric: tabular-nums; font-weight: 500; }
 
-    /* ─── Quick stats ─────────────────────────────────────────────────────── */
-    .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-    .stat-box { background: var(--surface); border-radius: 16px; padding: 20px; border: 1px solid var(--rule-lt); }
-    .stat-label { font-size: 12px; font-weight: 500; color: var(--ink-3); margin-bottom: 6px; }
-    .stat-number { font-size: 30px; font-weight: 700; letter-spacing: -0.5px; color: var(--ink); font-variant-numeric: tabular-nums; }
-    .stat-unit { font-size: 13px; color: var(--ink-2); margin-top: 3px; }
-
-    /* ─── Section ─────────────────────────────────────────────────────────── */
-    .section { margin-bottom: 16px; }
-    .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .section-title { font-size: 16px; font-weight: 600; color: var(--ink); }
-    .section-link { font-size: 13px; color: var(--amber-dk); font-weight: 500; cursor: pointer; }
-    .section-link:hover { opacity: 0.7; }
-
-    /* ─── Card ────────────────────────────────────────────────────────────── */
-    .card { background: var(--surface); border-radius: 16px; border: 1px solid var(--rule-lt); overflow: hidden; }
-
-    /* ─── Transactions ────────────────────────────────────────────────────── */
-    .tx { }
-    .tx-row {
-      display: grid;
-      grid-template-columns: auto 1fr auto;
-      align-items: center;
-      gap: 14px;
-      padding: 14px 20px;
-    }
-    .tx-row + .tx-row { border-top: 1px solid var(--rule-lt); }
-    .tx-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .tx-body { min-width: 0; }
-    .tx-title { font-size: 14px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .tx-time  { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
-    .tx-amount { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-    .tx-amount.cr { color: var(--green); }
-    .tx-amount.db { color: var(--ink); }
-
-    /* ─── Vehicle card ────────────────────────────────────────────────────── */
-    .vehicle-card { background: var(--surface); border-radius: 16px; border: 1px solid var(--rule-lt); padding: 20px; }
-    .vc-plate { font-size: 22px; font-weight: 700; letter-spacing: 1px; color: var(--ink); }
-    .vc-make { font-size: 13px; color: var(--ink-2); margin: 3px 0 14px; }
-    .vc-tags { display: flex; gap: 6px; flex-wrap: wrap; }
-    .tag { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 100px; font-size: 12px; font-weight: 600; }
-    .tag-green { background: var(--green-lt); color: #15803D; }
-    .tag-amber { background: var(--amber-lt); color: #92400E; }
-
-    /* ─── Buttons ─────────────────────────────────────────────────────────── */
+    /* ── Glass buttons ───────────────────────────────────────────────────────── */
     .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-      padding: 11px 22px; border-radius: 100px;
-      font-size: 14px; font-weight: 600; font-family: inherit;
-      cursor: pointer; border: none;
-      transition: filter 0.1s, transform 0.1s;
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 11px 20px; border-radius: 100px;
+      font-family: inherit; font-size: 14px; font-weight: 600; letter-spacing: -0.1px;
+      cursor: pointer; border: none; white-space: nowrap;
+      transition: transform .14s cubic-bezier(.34,1.56,.64,1), filter .14s ease, box-shadow .14s ease;
     }
-    .btn:active { transform: scale(0.97); }
-    .btn:disabled { opacity: 0.4; pointer-events: none; }
-    .btn-primary { background: var(--amber); color: #fff; }
-    .btn-primary:hover { filter: brightness(0.92); }
-    .btn-ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--rule); }
-    .btn-ghost:hover { background: var(--bg); }
+    .btn:active { transform: scale(.95); }
+    .btn:disabled { opacity: .45; pointer-events: none; }
+    .btn svg { width: 15px; height: 15px; }
+    .btn-primary {
+      background: linear-gradient(180deg, #FFAE2E, #FF9500 60%, #F08600);
+      color: #fff;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 4px 14px rgba(255,140,0,0.40);
+    }
+    .btn-primary:hover { filter: brightness(1.04); box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 6px 20px rgba(255,140,0,0.5); }
+    .btn-glass {
+      background: rgba(255,255,255,0.55);
+      color: var(--ink);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.85), inset 0 0 0 0.5px rgba(255,255,255,0.4), 0 2px 8px rgba(40,28,8,0.10);
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    }
+    .btn-glass:hover { background: rgba(255,255,255,0.72); }
     .btn-full { width: 100%; }
-    .btn-sm { padding: 8px 16px; font-size: 13px; }
+    .btn-sm { padding: 9px 16px; font-size: 13px; }
 
-    /* ─── Empty ───────────────────────────────────────────────────────────── */
-    .empty { padding: 60px 24px; text-align: center; }
-    .empty-title { font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
-    .empty-body { font-size: 13px; color: var(--ink-3); line-height: 1.6; max-width: 240px; margin: 0 auto; }
+    /* ── Cards / grids ──────────────────────────────────────────────────────── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+    .stack { display: flex; flex-direction: column; gap: 14px; }
 
-    /* ─── Fill wizard ─────────────────────────────────────────────────────── */
-    .steps { display: flex; align-items: center; margin-bottom: 28px; }
+    .stat { padding: 22px; border-radius: var(--r-lg); }
+    .stat-label { font-size: 12px; font-weight: 550; color: var(--ink-2); margin-bottom: 10px; }
+    .stat-num { font-size: 34px; font-weight: 700; letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; }
+    .stat-unit { font-size: 12.5px; color: var(--ink-3); margin-top: 5px; }
+
+    /* Vehicle */
+    .vehicle { padding: 22px; border-radius: var(--r-lg); }
+    .vehicle-eyebrow { font-size: 11px; font-weight: 650; letter-spacing: 0.6px; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px; }
+    .vehicle-plate { font-size: 23px; font-weight: 700; letter-spacing: 1.5px; }
+    .vehicle-make { font-size: 13px; color: var(--ink-2); margin: 3px 0 14px; }
+    .chips { display: flex; gap: 7px; flex-wrap: wrap; }
+    .chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 100px; font-size: 12px; font-weight: 600; }
+    .chip-green { background: rgba(52,199,89,0.16); color: var(--green-dk); }
+    .chip-amber { background: var(--amber-tint); color: var(--amber-dk); }
+    .chip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    /* Section */
+    .section-head { display: flex; align-items: center; justify-content: space-between; margin: 4px 6px 12px; }
+    .section-head h2 { font-size: 18px; font-weight: 650; letter-spacing: -0.3px; }
+    .section-link { font-size: 13.5px; color: var(--amber-dk); font-weight: 550; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; }
+    .section-link:hover { opacity: .7; }
+
+    /* Transactions */
+    .panel { border-radius: var(--r-lg); overflow: hidden; }
+    .tx-row { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 13px; padding: 13px 18px; }
+    .tx-row + .tx-row { border-top: 0.5px solid var(--hairline-dk); }
+    .tx-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); }
+    .tx-icon svg { width: 19px; height: 19px; }
+    .tx-body { min-width: 0; }
+    .tx-title { font-size: 14px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tx-time { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+    .tx-amt { font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; text-align: right; }
+    .tx-amt.cr { color: var(--green-dk); }
+    .tx-amt.db { color: var(--ink); }
+
+    .empty { padding: 56px 24px; text-align: center; }
+    .empty-mark { width: 52px; height: 52px; border-radius: 16px; background: rgba(255,255,255,0.6); box-shadow: inset 0 1px 0 rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+    .empty-mark svg { width: 24px; height: 24px; color: var(--ink-3); }
+    .empty-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+    .empty-body { font-size: 13px; color: var(--ink-3); line-height: 1.6; max-width: 250px; margin: 0 auto; }
+
+    /* ════════════════════════════ FILL WIZARD ═══════════════════════════════ */
+    .steps { display: flex; align-items: center; margin: 4px 4px 22px; }
     .step { display: flex; align-items: center; }
     .step-dot {
-      width: 24px; height: 24px; border-radius: 50%;
-      background: #E5E5E5; color: var(--ink-3);
+      width: 26px; height: 26px; border-radius: 50%;
+      background: rgba(255,255,255,0.7); color: var(--ink-3);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), inset 0 0 0 0.5px var(--ink-4);
       display: flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: 700; flex-shrink: 0;
-      transition: background 0.2s, color 0.2s;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+      transition: all .25s cubic-bezier(.34,1.56,.64,1);
     }
-    .step.active .step-dot { background: var(--amber); color: #fff; }
-    .step.done .step-dot   { background: var(--green); color: #fff; }
-    .step-label { font-size: 12px; color: var(--ink-3); margin-left: 6px; font-weight: 500; white-space: nowrap; }
+    .step.active .step-dot { background: linear-gradient(180deg,#FFAE2E,#FF9500); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 3px 10px rgba(255,140,0,0.45); }
+    .step.done .step-dot { background: var(--green); color: #fff; box-shadow: 0 2px 8px rgba(52,199,89,0.4); }
+    .step-label { font-size: 12px; color: var(--ink-3); margin-left: 7px; font-weight: 500; white-space: nowrap; }
     .step.active .step-label { color: var(--amber-dk); font-weight: 600; }
-    .step.done  .step-label  { color: var(--ink-2); }
-    .step-line { flex: 1; height: 1px; background: #E5E5E5; margin: 0 8px; min-width: 16px; }
-    .step.done + .step-line  { background: var(--green); }
+    .step.done .step-label { color: var(--ink-2); }
+    .step-line { flex: 1; height: 1.5px; background: var(--ink-4); margin: 0 10px; min-width: 16px; border-radius: 1px; transition: background .3s ease; }
 
-    /* ─── Form ────────────────────────────────────────────────────────────── */
-    .form-panel { max-width: 500px; }
-    .panel { background: var(--surface); border-radius: 16px; border: 1px solid var(--rule-lt); padding: 28px; }
-    .panel-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 22px; }
+    .form-wrap { max-width: 520px; }
+    .form-card { padding: 28px; border-radius: var(--r-xl); }
+    .form-title { font-size: 19px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 22px; }
 
     .field { margin-bottom: 16px; }
-    .field-label { font-size: 12px; font-weight: 600; color: var(--ink-2); display: block; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .field-label { display: block; font-size: 11.5px; font-weight: 650; letter-spacing: 0.5px; text-transform: uppercase; color: var(--ink-2); margin-bottom: 7px; }
     .field-input {
-      width: 100%; padding: 11px 14px;
-      background: var(--bg); border: 1.5px solid transparent;
-      border-radius: 10px; font-size: 15px; font-family: inherit; color: var(--ink);
-      outline: none; transition: border-color 0.15s, background 0.15s;
-      appearance: none;
+      width: 100%; padding: 12px 14px; border-radius: 13px;
+      font-family: inherit; font-size: 15px; color: var(--ink);
+      background: rgba(255,255,255,0.55);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), inset 0 0 0 1px rgba(0,0,0,0.05);
+      border: none; outline: none; appearance: none;
+      transition: box-shadow .18s ease, background .18s ease;
     }
-    .field-input:focus { border-color: var(--amber); background: #fff; }
+    .field-input:focus { background: rgba(255,255,255,0.85); box-shadow: inset 0 0 0 2px var(--amber), 0 0 0 4px var(--amber-tint); }
     .field-input::placeholder { color: var(--ink-3); }
+    select.field-input { cursor: pointer; }
 
-    .vol-row { display: flex; align-items: center; gap: 14px; padding: 4px 0; }
-    .vol-slider {
-      flex: 1; appearance: none; height: 4px; border-radius: 2px;
-      background: #E5E5E5; outline: none; cursor: pointer;
-      accent-color: var(--amber);
+    .vol { display: flex; align-items: center; gap: 16px; padding: 6px 2px; }
+    .vol input[type=range] {
+      flex: 1; appearance: none; height: 6px; border-radius: 3px; outline: none; cursor: pointer;
+      background: rgba(0,0,0,0.08);
     }
-    .vol-slider::-webkit-slider-thumb {
-      appearance: none; width: 20px; height: 20px; border-radius: 50%;
-      background: var(--amber); cursor: grab;
-      box-shadow: 0 2px 8px rgba(245,158,11,0.4);
+    .vol input[type=range]::-webkit-slider-thumb {
+      appearance: none; width: 24px; height: 24px; border-radius: 50%;
+      background: #fff; cursor: grab;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 1px 3px rgba(0,0,0,0.2), 0 4px 10px rgba(40,28,8,0.18);
+      border: 0.5px solid rgba(0,0,0,0.04);
     }
-    .vol-val { font-size: 16px; font-weight: 700; color: var(--amber-dk); min-width: 60px; text-align: right; font-variant-numeric: tabular-nums; }
+    .vol-val { font-size: 17px; font-weight: 700; color: var(--amber-dk); min-width: 66px; text-align: right; font-variant-numeric: tabular-nums; }
 
-    .auth-table { border-radius: 10px; border: 1px solid var(--rule); overflow: hidden; margin-bottom: 20px; }
-    .auth-row { display: flex; justify-content: space-between; padding: 10px 14px; font-size: 14px; }
-    .auth-row + .auth-row { border-top: 1px solid var(--rule-lt); }
+    .auth-table { border-radius: 14px; overflow: hidden; margin-bottom: 20px; background: rgba(255,255,255,0.4); box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.5); }
+    .auth-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 15px; font-size: 14px; }
+    .auth-row + .auth-row { border-top: 0.5px solid var(--hairline-dk); }
     .auth-key { color: var(--ink-2); }
     .auth-val { font-weight: 600; }
 
-    .err-msg {
-      background: var(--red-lt); border-radius: 10px;
-      padding: 12px 14px; color: var(--red);
-      font-size: 13px; line-height: 1.5; margin-bottom: 16px;
+    .err {
+      display: flex; align-items: flex-start; gap: 9px;
+      background: rgba(255,59,48,0.10); color: #C0160E;
+      padding: 12px 14px; border-radius: 13px; font-size: 13.5px; line-height: 1.45; margin-bottom: 16px;
+      box-shadow: inset 0 0 0 0.5px rgba(255,59,48,0.2);
     }
+    .err svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
 
-    /* ─── Pump ────────────────────────────────────────────────────────────── */
-    .pump-screen {
-      background: var(--surface); border-radius: 16px;
-      border: 1px solid var(--rule-lt); padding: 56px 40px;
-      text-align: center; max-width: 500px;
-    }
-    .pump-number { font-size: 72px; font-weight: 800; letter-spacing: -4px; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1; }
-    .pump-unit-label { font-size: 14px; font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: 3px; margin-top: 8px; }
-    .pump-status { font-size: 13px; color: var(--ink-3); margin-top: 28px; }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    /* Pump screen */
+    .pump { padding: 52px 40px; border-radius: var(--r-xl); text-align: center; }
+    .pump-ring { position: relative; width: 168px; height: 168px; margin: 0 auto 8px; }
+    .pump-ring svg { transform: rotate(-90deg); overflow: visible; }
+    .pump-track { fill: none; stroke: rgba(0,0,0,0.06); stroke-width: 10; }
+    .pump-bar { fill: none; stroke: url(#pump-grad); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 471; stroke-dashoffset: 471; transition: stroke-dashoffset .08s linear; filter: drop-shadow(0 2px 6px rgba(255,140,0,0.4)); }
+    .pump-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .pump-num { font-size: 38px; font-weight: 700; letter-spacing: -1.5px; font-variant-numeric: tabular-nums; line-height: 1; }
+    .pump-unit { font-size: 11px; font-weight: 650; letter-spacing: 2.5px; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
+    .pump-status { font-size: 13.5px; color: var(--ink-2); margin-top: 26px; font-weight: 500; }
+    .pump-status span { animation: blink 1.4s ease-in-out infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
 
-    /* ─── Receipt ─────────────────────────────────────────────────────────── */
-    .receipt {
-      background: var(--surface); border-radius: 20px;
-      border: 1px solid var(--rule-lt);
-      max-width: 500px; overflow: hidden;
+    /* Receipt */
+    .receipt { border-radius: var(--r-xl); overflow: hidden; }
+    .receipt-hero { padding: 38px 32px 26px; text-align: center; }
+    .receipt-check {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: linear-gradient(180deg,#3FD267,#34C759); margin: 0 auto 18px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 0 0 7px rgba(52,199,89,0.14), 0 8px 22px rgba(52,199,89,0.4);
+      animation: pop .4s cubic-bezier(.34,1.56,.64,1);
     }
-    .receipt-hero { padding: 36px 32px 28px; text-align: center; }
-    .receipt-mark {
-      width: 60px; height: 60px; border-radius: 50%;
-      background: var(--green); display: flex; align-items: center; justify-content: center;
-      margin: 0 auto 20px;
-      box-shadow: 0 0 0 8px var(--green-lt);
-      animation: pop 0.3s cubic-bezier(0.34,1.56,0.64,1);
-    }
-    @keyframes pop { from{transform:scale(0.5);opacity:0} to{transform:scale(1);opacity:1} }
-    .receipt-amount { font-size: 42px; font-weight: 800; letter-spacing: -2px; color: var(--ink); font-variant-numeric: tabular-nums; }
-    .receipt-desc { font-size: 14px; color: var(--ink-2); margin-top: 6px; }
-    .receipt-rows { border-top: 1px solid var(--rule-lt); }
+    .receipt-check svg { width: 28px; height: 28px; color: #fff; }
+    @keyframes pop { from{transform:scale(.4);opacity:0} to{transform:scale(1);opacity:1} }
+    .receipt-amt { font-size: 44px; font-weight: 700; letter-spacing: -2px; font-variant-numeric: tabular-nums; line-height: 1; }
+    .receipt-sub { font-size: 14px; color: var(--ink-2); margin-top: 8px; }
+    .receipt-rows { border-top: 0.5px solid var(--hairline-dk); }
     .rec-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; font-size: 14px; }
-    .rec-row + .rec-row { border-top: 1px solid var(--rule-lt); }
+    .rec-row + .rec-row { border-top: 0.5px solid var(--hairline-dk); }
     .rec-key { color: var(--ink-2); }
     .rec-val { font-weight: 600; font-variant-numeric: tabular-nums; }
-    .rec-total { background: var(--bg); }
-    .rec-total .rec-key { font-weight: 600; color: var(--ink); }
+    .rec-total { background: rgba(255,149,0,0.07); }
+    .rec-total .rec-key { font-weight: 650; color: var(--ink); }
     .rec-total .rec-val { color: var(--amber-dk); font-size: 15px; }
-    .receipt-foot { padding: 14px 24px; text-align: center; font-size: 11px; color: var(--ink-3); letter-spacing: 1px; font-variant-numeric: tabular-nums; border-top: 1px solid var(--rule-lt); }
+    .receipt-foot { padding: 14px; text-align: center; font-size: 11px; letter-spacing: 1px; color: var(--ink-3); font-variant-numeric: tabular-nums; border-top: 0.5px solid var(--hairline-dk); }
 
-    .insights-row { display: flex; max-width: 500px; background: var(--surface); border: 1px solid var(--rule-lt); border-radius: 14px; overflow: hidden; margin-top: 12px; }
-    .ins-cell { flex: 1; padding: 18px; text-align: center; }
-    .ins-cell + .ins-cell { border-left: 1px solid var(--rule-lt); }
-    .ins-num { font-size: 22px; font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
+    .insights { display: flex; border-radius: var(--r-md); overflow: hidden; margin-top: 14px; }
+    .ins { flex: 1; padding: 18px; text-align: center; }
+    .ins + .ins { border-left: 0.5px solid var(--hairline-dk); }
+    .ins-num { font-size: 22px; font-weight: 700; color: var(--green-dk); font-variant-numeric: tabular-nums; }
     .ins-lbl { font-size: 11px; color: var(--ink-3); margin-top: 3px; font-weight: 500; }
 
-    /* ─── Reports ─────────────────────────────────────────────────────────── */
-    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
-    .metric { background: var(--surface); border-radius: 16px; border: 1px solid var(--rule-lt); padding: 20px; }
-    .metric-label { font-size: 12px; font-weight: 500; color: var(--ink-3); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .metric-val { font-size: 30px; font-weight: 700; letter-spacing: -0.5px; color: var(--ink); font-variant-numeric: tabular-nums; }
-    .metric-sub { font-size: 12px; color: var(--ink-3); margin-top: 4px; }
+    /* ── Reports ───────────────────────────────────────────────────────────── */
+    .metric { padding: 20px; border-radius: var(--r-lg); }
+    .metric-label { font-size: 11.5px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--ink-2); margin-bottom: 9px; }
+    .metric-val { font-size: 32px; font-weight: 700; letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; }
+    .metric-sub { font-size: 12px; color: var(--ink-3); margin-top: 5px; }
 
-    .data-table { width: 100%; border-collapse: collapse; }
-    .data-table th {
-      font-size: 11px; font-weight: 600; color: var(--ink-3);
-      text-transform: uppercase; letter-spacing: 0.5px;
-      padding: 12px 20px; text-align: left;
-      border-bottom: 1px solid var(--rule);
-    }
-    .data-table td { padding: 13px 20px; font-size: 14px; vertical-align: middle; }
-    .data-table tr + tr td { border-top: 1px solid var(--rule-lt); }
-    .data-table tr:hover td { background: rgba(0,0,0,0.012); }
-    .data-table .r { text-align: right; }
+    .table { width: 100%; border-collapse: collapse; }
+    .table th { font-size: 11px; font-weight: 650; letter-spacing: 0.5px; text-transform: uppercase; color: var(--ink-3); text-align: left; padding: 13px 18px; border-bottom: 0.5px solid var(--hairline-dk); }
+    .table td { padding: 13px 18px; font-size: 14px; vertical-align: middle; }
+    .table tr + tr td { border-top: 0.5px solid var(--hairline-dk); }
+    .table tr:hover td { background: rgba(255,255,255,0.4); }
+    .table .r { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-    /* ─── Setup ───────────────────────────────────────────────────────────── */
-    .info-list { max-width: 460px; }
-    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; font-size: 14px; }
-    .info-row + .info-row { border-top: 1px solid var(--rule-lt); }
+    /* ── Account ───────────────────────────────────────────────────────────── */
+    .info { max-width: 480px; border-radius: var(--r-lg); overflow: hidden; }
+    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; font-size: 14px; }
+    .info-row + .info-row { border-top: 0.5px solid var(--hairline-dk); }
     .info-key { color: var(--ink-2); font-weight: 500; }
-    .info-val { color: var(--ink); font-weight: 600; }
-    .info-mono { font-family: 'SFMono-Regular', 'Menlo', monospace; font-size: 12px; color: var(--ink-3); }
+    .info-val { font-weight: 600; }
+    .mono { font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 12px; color: var(--ink-3); }
 
-    /* ─── Spinner ─────────────────────────────────────────────────────────── */
-    .spin { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--rule); border-top-color: var(--amber); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; }
+    /* ── Spinner ───────────────────────────────────────────────────────────── */
+    .spin { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(0,0,0,0.08); border-top-color: var(--amber); border-radius: 50%; animation: spin .6s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ─── Modal ───────────────────────────────────────────────────────────── */
+    /* ── Modal ─────────────────────────────────────────────────────────────── */
     .overlay {
       position: fixed; inset: 0; z-index: 300;
-      background: rgba(0,0,0,0.28);
-      backdrop-filter: blur(3px);
-      display: flex; align-items: center; justify-content: center;
-      padding: 20px;
-      opacity: 0; pointer-events: none;
-      transition: opacity 0.18s;
+      background: rgba(30,20,5,0.28);
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+      opacity: 0; pointer-events: none; transition: opacity .22s ease;
     }
     .overlay.open { opacity: 1; pointer-events: auto; }
     .modal {
-      background: var(--surface); border-radius: 22px;
-      padding: 30px 28px; width: 100%; max-width: 380px;
-      transform: translateY(16px) scale(0.97);
-      transition: transform 0.2s cubic-bezier(0.34,1.3,0.64,1);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+      width: 100%; max-width: 384px; padding: 30px 28px;
+      border-radius: var(--r-xl); background: var(--glass-bright);
+      box-shadow: var(--spec), 0 30px 70px rgba(30,20,5,0.35);
+      -webkit-backdrop-filter: blur(40px) saturate(180%); backdrop-filter: blur(40px) saturate(180%);
+      border: 0.5px solid var(--hairline);
+      transform: translateY(14px) scale(.96); transition: transform .3s cubic-bezier(.34,1.4,.5,1);
     }
     .overlay.open .modal { transform: none; }
-    .modal-head { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
-    .modal-sub { font-size: 13px; color: var(--ink-2); margin-bottom: 24px; }
-    .amount-show { background: var(--bg); border-radius: 14px; padding: 18px; text-align: center; margin-bottom: 20px; }
-    .amount-show-cur { font-size: 14px; color: var(--ink-2); font-weight: 500; }
-    .amount-show-val { font-size: 48px; font-weight: 800; letter-spacing: -2px; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.1; }
-    .quick-amounts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
-    .qa-btn {
-      padding: 10px 0; border-radius: 9px; border: 1.5px solid var(--rule);
-      background: var(--surface); font-size: 14px; font-weight: 600; color: var(--ink);
-      cursor: pointer; font-family: inherit; transition: all 0.1s;
-    }
-    .qa-btn:hover { border-color: var(--amber); color: var(--amber-dk); }
-    .qa-btn.on { border-color: var(--amber); background: var(--amber-lt); color: #92400E; }
-    .modal-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+    .modal-head { font-size: 19px; font-weight: 700; letter-spacing: -0.3px; }
+    .modal-sub { font-size: 13px; color: var(--ink-2); margin: 3px 0 22px; }
+    .amount-show { border-radius: var(--r-md); padding: 18px; text-align: center; margin-bottom: 18px; background: rgba(255,255,255,0.5); box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), inset 0 0 0 0.5px rgba(0,0,0,0.04); }
+    .amount-cur { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+    .amount-val { font-size: 48px; font-weight: 700; letter-spacing: -2px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .quick { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 16px; }
+    .qa-btn { padding: 10px 0; border-radius: 11px; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; border: none;
+      background: rgba(255,255,255,0.5); color: var(--ink); box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), inset 0 0 0 0.5px rgba(0,0,0,0.05); transition: all .14s ease; }
+    .qa-btn:hover { color: var(--amber-dk); }
+    .qa-btn.on { background: var(--amber-tint); color: var(--amber-dk); box-shadow: inset 0 0 0 1.5px var(--amber); }
+    .modal-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
 
-    /* ─── Toast ───────────────────────────────────────────────────────────── */
+    /* ── Toast ─────────────────────────────────────────────────────────────── */
     #toast {
-      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(12px);
-      background: #111; color: #fff; padding: 10px 18px;
-      border-radius: 100px; font-size: 13px; font-weight: 500;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.22); z-index: 500;
-      opacity: 0; pointer-events: none;
-      transition: opacity 0.2s, transform 0.2s;
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(16px);
+      padding: 12px 20px; border-radius: 100px; z-index: 500;
+      background: rgba(28,28,30,0.82); color: #fff; font-size: 13.5px; font-weight: 550;
+      -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 10px 34px rgba(0,0,0,0.3);
+      opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s cubic-bezier(.34,1.4,.5,1);
       white-space: nowrap;
     }
-    #toast.on { opacity: 1; transform: translateX(-50%); }
+    #toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    /* ─── Misc ────────────────────────────────────────────────────────────── */
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 2px; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+
+    @media (max-width: 880px) {
+      .sidebar { display: none; }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
+
+<!-- Ambient world the glass refracts -->
+<div class="ambient"></div>
+<div class="grain"></div>
+
+<!-- SVG filters: liquid lensing + pump gradient -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="liquid-lens" x="-20%" y="-20%" width="140%" height="140%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.008 0.012" numOctaves="2" seed="42" result="noise"/>
+    <feGaussianBlur in="noise" stdDeviation="2.4" result="soft"/>
+    <feDisplacementMap in="SourceGraphic" in2="soft" scale="58" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <linearGradient id="pump-grad" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#FFBE45"/>
+    <stop offset="1" stop-color="#FF7A00"/>
+  </linearGradient>
+</svg>
 
 <!-- Top-up modal -->
 <div class="overlay" id="topup-overlay" onclick="if(event.target===this)closeTopup()">
@@ -408,10 +512,10 @@
     <div class="modal-head">Top Up Wallet</div>
     <div class="modal-sub">Funds added instantly via Apple Pay</div>
     <div class="amount-show">
-      <div class="amount-show-cur">SAR</div>
-      <div class="amount-show-val" id="modal-val">200</div>
+      <div class="amount-cur">SAR</div>
+      <div class="amount-val" id="modal-val">200</div>
     </div>
-    <div class="quick-amounts">
+    <div class="quick">
       <button class="qa-btn" onclick="pickAmt(100)">100</button>
       <button class="qa-btn on" onclick="pickAmt(200)">200</button>
       <button class="qa-btn" onclick="pickAmt(500)">500</button>
@@ -422,7 +526,7 @@
       <input class="field-input" id="custom-input" type="number" min="10" max="50000" placeholder="SAR" oninput="customAmt(this.value)">
     </div>
     <div class="modal-btns">
-      <button class="btn btn-ghost" onclick="closeTopup()">Cancel</button>
+      <button class="btn btn-glass" onclick="closeTopup()">Cancel</button>
       <button class="btn btn-primary" id="confirm-topup" onclick="doTopup()">Add Funds</button>
     </div>
   </div>
@@ -430,616 +534,449 @@
 
 <div id="toast"></div>
 
-<!-- Sidebar -->
-<nav class="sidebar">
-  <div class="brand">
-    <div class="brand-mark">ث</div>
-    <span class="brand-name">Thobii</span>
-  </div>
-  <div class="nav">
-    <div class="nav-item active" onclick="go('dashboard')">
-      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="1.5" y="1.5" width="5" height="5" rx="1.2"/><rect x="8.5" y="1.5" width="5" height="5" rx="1.2"/>
-        <rect x="1.5" y="8.5" width="5" height="5" rx="1.2"/><rect x="8.5" y="8.5" width="5" height="5" rx="1.2"/>
-      </svg>
-      Dashboard
-    </div>
-    <div class="nav-item" onclick="go('fill')">
-      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 13V5.5a1 1 0 011-1h4a1 1 0 011 1V13"/><path d="M3 13h6"/>
-        <path d="M6 9H4M10.5 5.5v2.5M10.5 5c1 0 2 .7 2 2v1.5c0 .8.7 1.5 1.5 1.5"/>
-      </svg>
-      Simulate Fill
-    </div>
-    <div class="nav-item" onclick="go('reports')">
-      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="1" y="9.5" width="3" height="4" rx="0.8"/><rect x="6" y="6" width="3" height="7.5" rx="0.8"/><rect x="11" y="2.5" width="3" height="11" rx="0.8"/>
-      </svg>
-      Reports
-    </div>
-    <div class="nav-item" onclick="go('setup')">
-      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="7.5" cy="7.5" r="2"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M3.2 3.2l1 1M10.8 10.8l1 1M3.2 11.8l1-1M10.8 4.2l1-1"/>
-      </svg>
-      Account
-    </div>
-  </div>
-  <div class="sidebar-foot">
-    <span class="live-dot"></span>
-    API connected
-  </div>
-</nav>
+<div class="app">
 
-<!-- Topbar -->
-<div class="topbar">
-  <span class="topbar-title" id="bc">Dashboard</span>
-  <div class="user-pill">
-    <div class="av" id="av">MA</div>
-    <span id="uname">Mohammed</span>
+  <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+  <aside class="sidebar glass glass--nav">
+    <div class="brand">
+      <div class="brand-mark">ث</div>
+      <div class="brand-name">Thobii</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item active" onclick="go('dashboard')">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="2.5" y="2.5" width="6" height="6" rx="1.6"/><rect x="11.5" y="2.5" width="6" height="6" rx="1.6"/><rect x="2.5" y="11.5" width="6" height="6" rx="1.6"/><rect x="11.5" y="11.5" width="6" height="6" rx="1.6"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-item" onclick="go('fill')">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17V6a1.5 1.5 0 011.5-1.5h5A1.5 1.5 0 0112 6v11"/><path d="M4 17h8"/><path d="M8 9.5H6"/><path d="M14 7v3.5"/><path d="M14 6.5c1.4 0 2.8 1 2.8 2.8v2.4c0 1 .8 1.8 1.7 1.8"/></svg>
+        Simulate Fill
+      </div>
+      <div class="nav-item" onclick="go('reports')">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="12" width="3.4" height="5.5" rx="1"/><rect x="8.3" y="7.5" width="3.4" height="10" rx="1"/><rect x="14.1" y="3" width="3.4" height="14.5" rx="1"/></svg>
+        Reports
+      </div>
+      <div class="nav-item" onclick="go('setup')">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="2.6"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.3 4.3l1.4 1.4M14.3 14.3l1.4 1.4M4.3 15.7l1.4-1.4M14.3 5.7l1.4-1.4"/></svg>
+        Account
+      </div>
+    </nav>
+    <div class="nav-foot"><span class="live"></span> API connected</div>
+  </aside>
+
+  <!-- ── Content ──────────────────────────────────────────────────────────── -->
+  <div class="content">
+
+    <!-- Top bar -->
+    <header class="topbar glass glass--nav">
+      <span class="topbar-title" id="bc">Dashboard</span>
+      <div class="user-pill">
+        <span class="av" id="av">MA</span>
+        <span id="uname">Mohammed</span>
+      </div>
+    </header>
+
+    <div class="scroll">
+
+      <!-- ════════════ DASHBOARD ════════════ -->
+      <div id="p-dashboard" class="page active">
+        <div class="heading">
+          <h1 id="greeting">Good morning, Mohammed</h1>
+          <p id="dash-date"></p>
+        </div>
+
+        <!-- Balance hero — the Liquid Glass showpiece -->
+        <div class="hero glass glass--liquid">
+          <div class="lens"></div>
+          <div class="hero-eyebrow">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="2" y="5" width="16" height="11" rx="2.5"/><path d="M2 8.5h16"/></svg>
+            Wallet Balance
+          </div>
+          <div class="hero-amount">
+            <span class="hero-cur">SAR</span>
+            <span class="hero-num" id="bal">—</span>
+          </div>
+          <div class="hero-avail" id="avail-txt">Loading…</div>
+          <div class="hero-bottom">
+            <div class="hero-iban" id="bal-iban"></div>
+            <div class="hero-actions">
+              <button class="btn btn-primary" onclick="openTopup()">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+                Top Up
+              </button>
+              <button class="btn btn-glass" onclick="go('fill')">Fill Now</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid-2" style="margin-top:14px">
+          <div class="stat glass">
+            <div class="stat-label">Fills This Month</div>
+            <div class="stat-num" id="m-fills">—</div>
+            <div class="stat-unit">transactions</div>
+          </div>
+          <div class="stat glass">
+            <div class="stat-label">Spent This Month</div>
+            <div class="stat-num" id="m-spend">—</div>
+            <div class="stat-unit">SAR</div>
+          </div>
+        </div>
+
+        <!-- Vehicle -->
+        <div class="vehicle glass" style="margin-top:14px">
+          <div class="vehicle-eyebrow">Primary Vehicle</div>
+          <div class="vehicle-plate" id="v-plate">—</div>
+          <div class="vehicle-make" id="v-make"></div>
+          <div class="chips">
+            <span class="chip chip-green"><span class="chip-dot"></span>Active</span>
+            <span class="chip chip-amber" id="v-fuel">Gasoline 95</span>
+          </div>
+        </div>
+
+        <!-- Activity -->
+        <div style="margin-top:22px">
+          <div class="section-head">
+            <h2>Recent Activity</h2>
+            <span class="section-link" onclick="go('reports')">View all
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l4 3.5L5 10"/></svg>
+            </span>
+          </div>
+          <div class="panel glass" id="tx-list"><div style="padding:52px;text-align:center"><span class="spin"></span></div></div>
+        </div>
+      </div>
+
+      <!-- ════════════ FILL ════════════ -->
+      <div id="p-fill" class="page">
+        <div class="heading"><h1>Simulate Fill</h1><p>Walk through a complete pump transaction</p></div>
+
+        <div class="steps">
+          <div class="step active" id="sd1"><div class="step-dot">1</div><span class="step-label">Tap Tag</span></div>
+          <div class="step-line" id="sl1"></div>
+          <div class="step" id="sd2"><div class="step-dot">2</div><span class="step-label">Authorized</span></div>
+          <div class="step-line" id="sl2"></div>
+          <div class="step" id="sd3"><div class="step-dot">3</div><span class="step-label">Dispensing</span></div>
+          <div class="step-line" id="sl3"></div>
+          <div class="step" id="sd4"><div class="step-dot"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.5l2.5 2.5 4.5-5"/></svg></div><span class="step-label">Receipt</span></div>
+        </div>
+
+        <!-- Step 1 -->
+        <div id="fs1" class="form-wrap">
+          <div class="form-card glass">
+            <div class="form-title">Scan RFID Tag</div>
+            <div class="err" id="ferr" style="display:none">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 5v3.5"/><circle cx="8" cy="11" r=".6" fill="currentColor"/></svg>
+              <span id="ferr-msg"></span>
+            </div>
+            <div class="field"><label class="field-label">Tag UID</label><input class="field-input" id="f-tag" placeholder="RFID-TAG-0042"></div>
+            <div class="field"><label class="field-label">Station</label><input class="field-input" id="f-station" value="ALDREES-RYD-001"></div>
+            <div class="field"><label class="field-label">Fuel Grade</label>
+              <select class="field-input" id="f-grade">
+                <option value="GASOLINE_95">Gasoline 95</option>
+                <option value="GASOLINE_91">Gasoline 91</option>
+                <option value="DIESEL">Diesel</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-full" id="auth-btn" onclick="doAuth()" style="margin-top:8px">Authorize at Pump</button>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div id="fs2" style="display:none" class="form-wrap">
+          <div class="form-card glass">
+            <div class="form-title">Ready to Fill</div>
+            <div class="auth-table" id="auth-box"></div>
+            <div class="field"><label class="field-label">Volume to dispense</label>
+              <div class="vol">
+                <input type="range" id="lrange" min="1" max="120" value="35" oninput="document.getElementById('rvl').textContent=parseFloat(this.value).toFixed(1)+' L'">
+                <span class="vol-val" id="rvl">35.0 L</span>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-full" onclick="doSettle()" style="margin-top:12px">Dispense Fuel</button>
+            <button class="btn btn-glass btn-full" onclick="resetFill()" style="margin-top:8px">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div id="fs3" style="display:none" class="form-wrap">
+          <div class="pump glass">
+            <div class="pump-ring">
+              <svg width="168" height="168" viewBox="0 0 168 168">
+                <circle class="pump-track" cx="84" cy="84" r="75"/>
+                <circle class="pump-bar" id="pump-arc" cx="84" cy="84" r="75"/>
+              </svg>
+              <div class="pump-center">
+                <div class="pump-num" id="pump-num">0.000</div>
+                <div class="pump-unit">Litres</div>
+              </div>
+            </div>
+            <div class="pump-status"><span>Dispensing fuel…</span></div>
+          </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div id="fs4" style="display:none" class="form-wrap">
+          <div class="receipt glass">
+            <div class="receipt-hero">
+              <div class="receipt-check"><svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 14.5l4.5 4.5L21 9"/></svg></div>
+              <div class="receipt-amt" id="r-amt">—</div>
+              <div class="receipt-sub" id="r-sub">—</div>
+            </div>
+            <div class="receipt-rows" id="r-rows"></div>
+            <div class="receipt-foot" id="r-ref">—</div>
+          </div>
+          <div class="insights glass" id="r-ins" style="display:none">
+            <div class="ins"><div class="ins-num" id="i-fills">—</div><div class="ins-lbl">Fills this month</div></div>
+            <div class="ins"><div class="ins-num" id="i-spend">—</div><div class="ins-lbl">SAR spent</div></div>
+          </div>
+          <button class="btn btn-primary btn-full" onclick="resetFill()" style="margin-top:14px">Done</button>
+        </div>
+      </div>
+
+      <!-- ════════════ REPORTS ════════════ -->
+      <div id="p-reports" class="page">
+        <div class="heading"><h1>Reports</h1><p id="rep-date">Daily reconciliation</p></div>
+        <div class="grid-3">
+          <div class="metric glass"><div class="metric-label">Topups Today</div><div class="metric-val" id="r-tc">—</div><div class="metric-sub" id="r-tt">—</div></div>
+          <div class="metric glass"><div class="metric-label">Fills Today</div><div class="metric-val" id="r-fc">—</div><div class="metric-sub" id="r-ft">—</div></div>
+          <div class="metric glass"><div class="metric-label">Settled Auth.</div><div class="metric-val" id="r-sc">—</div><div class="metric-sub" id="r-oh">—</div></div>
+        </div>
+        <div style="margin-top:22px">
+          <div class="section-head"><h2>Statement</h2></div>
+          <div class="panel glass">
+            <table class="table">
+              <thead><tr><th>Type</th><th>Description</th><th>Time</th><th class="r">Amount</th></tr></thead>
+              <tbody id="stmt-body"><tr><td colspan="4" style="padding:44px;text-align:center"><span class="spin"></span></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════ ACCOUNT ════════════ -->
+      <div id="p-setup" class="page">
+        <div class="heading"><h1>Account</h1><p>Demo account details</p></div>
+        <div class="info glass">
+          <div class="info-row"><span class="info-key">Name</span><span class="info-val" id="su-name">—</span></div>
+          <div class="info-row"><span class="info-key">Vehicle</span><span class="info-val" id="su-plate">—</span></div>
+          <div class="info-row"><span class="info-key">Model</span><span class="info-val" id="su-make">—</span></div>
+          <div class="info-row"><span class="info-key">RFID Tag</span><span class="info-val mono" id="su-tag">—</span></div>
+          <div class="info-row"><span class="info-key">Wallet</span><span class="info-val mono" id="su-wallet" style="font-size:11px">—</span></div>
+        </div>
+        <button class="btn btn-glass btn-sm" onclick="confirmReset()" style="margin-top:18px">Reset Demo Account</button>
+      </div>
+
+    </div>
   </div>
 </div>
-
-<main class="main">
-
-  <!-- ── Dashboard ─────────────────────────────────────────────────────────── -->
-  <div id="p-dashboard" class="page active">
-
-    <div style="margin-bottom:20px">
-      <div style="font-size:26px;font-weight:700;letter-spacing:-0.5px;margin-bottom:3px" id="greeting">Good morning, Mohammed</div>
-      <div style="font-size:13px;color:var(--ink-3)" id="dash-date"></div>
-    </div>
-
-    <!-- Balance -->
-    <div class="balance-section">
-      <div class="balance-label">Wallet Balance</div>
-      <div class="balance-row">
-        <span class="balance-cur">SAR</span>
-        <span class="balance-num" id="bal">—</span>
-      </div>
-      <div class="balance-avail" id="avail-txt">Loading…</div>
-      <div class="balance-actions">
-        <button class="btn btn-primary" onclick="openTopup()">+ Top Up</button>
-        <button class="btn btn-ghost" onclick="go('fill')">Fill Now</button>
-      </div>
-      <div class="balance-iban" id="bal-iban"></div>
-    </div>
-
-    <!-- Stats + vehicle -->
-    <div class="stats-row">
-      <div class="stat-box">
-        <div class="stat-label">Fills This Month</div>
-        <div class="stat-number" id="m-fills">—</div>
-        <div class="stat-unit">transactions</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-label">Spent This Month</div>
-        <div class="stat-number" id="m-spend">—</div>
-        <div class="stat-unit">SAR</div>
-      </div>
-    </div>
-
-    <!-- Vehicle -->
-    <div class="vehicle-card" style="margin-bottom:16px">
-      <div class="vc-plate" id="v-plate">—</div>
-      <div class="vc-make" id="v-make"></div>
-      <div class="vc-tags">
-        <span class="tag tag-green">Active</span>
-        <span class="tag tag-amber" id="v-fuel">Gasoline 95</span>
-      </div>
-    </div>
-
-    <!-- Recent activity -->
-    <div class="section">
-      <div class="section-head">
-        <span class="section-title">Recent Activity</span>
-        <span class="section-link" onclick="go('reports')">View all →</span>
-      </div>
-      <div class="card">
-        <div id="tx-list" class="tx"><div style="padding:52px;text-align:center"><span class="spin"></span></div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Simulate Fill ──────────────────────────────────────────────────────── -->
-  <div id="p-fill" class="page">
-    <div style="margin-bottom:24px">
-      <div style="font-size:26px;font-weight:700;letter-spacing:-0.5px;margin-bottom:3px">Simulate Fill</div>
-      <div style="font-size:13px;color:var(--ink-3)">Walk through a complete pump transaction</div>
-    </div>
-
-    <div class="steps" id="steps-bar">
-      <div class="step active" id="sd1"><div class="step-dot">1</div><span class="step-label">Tap Tag</span></div>
-      <div class="step-line" id="sl1"></div>
-      <div class="step" id="sd2"><div class="step-dot">2</div><span class="step-label">Authorized</span></div>
-      <div class="step-line" id="sl2"></div>
-      <div class="step" id="sd3"><div class="step-dot">3</div><span class="step-label">Dispensing</span></div>
-      <div class="step-line" id="sl3"></div>
-      <div class="step" id="sd4">
-        <div class="step-dot">
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5l2.5 2.5 3.5-4"/></svg>
-        </div>
-        <span class="step-label">Receipt</span>
-      </div>
-    </div>
-
-    <!-- Step 1 -->
-    <div id="fs1" class="form-panel">
-      <div class="panel">
-        <div class="panel-title">Scan RFID Tag</div>
-        <div class="err-msg" id="ferr" style="display:none" id="ferr"></div>
-        <div class="field">
-          <label class="field-label">Tag UID</label>
-          <input class="field-input" id="f-tag" placeholder="e.g. RFID-TAG-0042">
-        </div>
-        <div class="field">
-          <label class="field-label">Station</label>
-          <input class="field-input" id="f-station" value="ALDREES-RYD-001">
-        </div>
-        <div class="field">
-          <label class="field-label">Fuel Grade</label>
-          <select class="field-input" id="f-grade">
-            <option value="GASOLINE_95">Gasoline 95</option>
-            <option value="GASOLINE_91">Gasoline 91</option>
-            <option value="DIESEL">Diesel</option>
-          </select>
-        </div>
-        <button class="btn btn-primary btn-full" id="auth-btn" onclick="doAuth()" style="margin-top:6px">Authorize at Pump</button>
-      </div>
-    </div>
-
-    <!-- Step 2 -->
-    <div id="fs2" style="display:none" class="form-panel">
-      <div class="panel">
-        <div class="panel-title">Ready to Fill</div>
-        <div class="auth-table" id="auth-box"></div>
-        <div class="field">
-          <label class="field-label">Volume to dispense</label>
-          <div class="vol-row">
-            <input type="range" class="vol-slider" id="lrange" min="1" max="120" value="35"
-              oninput="document.getElementById('rvl').textContent=parseFloat(this.value).toFixed(1)+' L'">
-            <span class="vol-val" id="rvl">35.0 L</span>
-          </div>
-        </div>
-        <button class="btn btn-primary btn-full" onclick="doSettle()" style="margin-top:12px">Dispense Fuel</button>
-        <button class="btn btn-ghost btn-full" onclick="resetFill()" style="margin-top:8px">Cancel</button>
-      </div>
-    </div>
-
-    <!-- Step 3 -->
-    <div id="fs3" style="display:none" class="form-panel">
-      <div class="pump-screen">
-        <div class="pump-number" id="pump-num">0.000</div>
-        <div class="pump-unit-label">Litres</div>
-        <div class="pump-status" style="animation:blink 1.4s ease-in-out infinite">Dispensing…</div>
-      </div>
-    </div>
-
-    <!-- Step 4 -->
-    <div id="fs4" style="display:none" class="form-panel">
-      <div class="receipt">
-        <div class="receipt-hero">
-          <div class="receipt-mark">
-            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M6 13l5 5 9-9"/>
-            </svg>
-          </div>
-          <div class="receipt-amount" id="r-amt">—</div>
-          <div class="receipt-desc" id="r-sub">—</div>
-        </div>
-        <div class="receipt-rows" id="r-rows"></div>
-        <div class="receipt-foot" id="r-ref">—</div>
-      </div>
-      <div class="insights-row" id="r-ins" style="display:none">
-        <div class="ins-cell"><div class="ins-num" id="i-fills">—</div><div class="ins-lbl">Fills this month</div></div>
-        <div class="ins-cell"><div class="ins-num" id="i-spend">—</div><div class="ins-lbl">SAR spent</div></div>
-      </div>
-      <div style="max-width:500px;margin-top:14px">
-        <button class="btn btn-primary btn-full" onclick="resetFill()">Done</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Reports ────────────────────────────────────────────────────────────── -->
-  <div id="p-reports" class="page">
-    <div style="margin-bottom:24px">
-      <div style="font-size:26px;font-weight:700;letter-spacing:-0.5px;margin-bottom:3px">Reports</div>
-      <div style="font-size:13px;color:var(--ink-3)" id="rep-date">Daily reconciliation</div>
-    </div>
-
-    <div class="metrics">
-      <div class="metric"><div class="metric-label">Topups Today</div><div class="metric-val" id="r-tc">—</div><div class="metric-sub" id="r-tt">—</div></div>
-      <div class="metric"><div class="metric-label">Fills Today</div><div class="metric-val" id="r-fc">—</div><div class="metric-sub" id="r-ft">—</div></div>
-      <div class="metric"><div class="metric-label">Settled Auth.</div><div class="metric-val" id="r-sc">—</div><div class="metric-sub" id="r-oh">—</div></div>
-    </div>
-
-    <div class="section">
-      <div class="section-head"><span class="section-title">Statement</span></div>
-      <div class="card" style="overflow:hidden">
-        <table class="data-table">
-          <thead><tr><th>Type</th><th>Description</th><th>Time</th><th class="r">Amount</th></tr></thead>
-          <tbody id="stmt-body"><tr><td colspan="4" style="padding:44px;text-align:center"><span class="spin"></span></td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Account / Setup ───────────────────────────────────────────────────── -->
-  <div id="p-setup" class="page">
-    <div style="margin-bottom:24px">
-      <div style="font-size:26px;font-weight:700;letter-spacing:-0.5px;margin-bottom:3px">Account</div>
-      <div style="font-size:13px;color:var(--ink-3)">Demo account details</div>
-    </div>
-
-    <div class="card info-list" style="margin-bottom:20px">
-      <div class="info-row"><span class="info-key">Name</span><span class="info-val" id="su-name">—</span></div>
-      <div class="info-row"><span class="info-key">Vehicle</span><span class="info-val" id="su-plate">—</span></div>
-      <div class="info-row"><span class="info-key">Model</span><span class="info-val" id="su-make">—</span></div>
-      <div class="info-row"><span class="info-key">RFID Tag</span><span class="info-val info-mono" id="su-tag">—</span></div>
-      <div class="info-row"><span class="info-key">Wallet</span><span class="info-val info-mono" id="su-wallet" style="font-size:11px">—</span></div>
-    </div>
-
-    <button class="btn btn-ghost btn-sm" onclick="confirmReset()">Reset Demo Account</button>
-  </div>
-
-</main>
 
 <script>
 const API = '';
 let S = {};
 let topupAmt = 200;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('on');
-  setTimeout(() => t.classList.remove('on'), 3200);
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),3200); }
+
+async function req(method, path, body, ikey){
+  const h={'Content-Type':'application/json'}; if(ikey) h['Idempotency-Key']=ikey;
+  const r=await fetch(API+path,{method,headers:h,body:body?JSON.stringify(body):undefined});
+  const d=await r.json(); if(!r.ok) throw Object.assign(new Error(d.error||'Error'),{data:d}); return d;
 }
 
-async function req(method, path, body, ikey) {
-  const h = { 'Content-Type': 'application/json' };
-  if (ikey) h['Idempotency-Key'] = ikey;
-  const r = await fetch(API + path, { method, headers: h, body: body ? JSON.stringify(body) : undefined });
-  const d = await r.json();
-  if (!r.ok) throw Object.assign(new Error(d.error || 'Error'), { data: d });
-  return d;
+async function boot(){
+  const hr=new Date().getHours();
+  const greet=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
+  document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  document.getElementById('rep-date').textContent='Reconciliation · '+new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  try{ S=JSON.parse(localStorage.getItem('thobii5')||'{}'); }catch{}
+  if(!S.userId) await createDemo(); else { applyState(greet); await loadDash(); }
 }
 
-// ── Boot ──────────────────────────────────────────────────────────────────────
-async function boot() {
-  const hr = new Date().getHours();
-  const greet = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
-  document.getElementById('dash-date').textContent =
-    new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
-  document.getElementById('rep-date').textContent =
-    'Reconciliation · ' + new Date().toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
-
-  try { S = JSON.parse(localStorage.getItem('thobii4') || '{}'); } catch {}
-
-  if (!S.userId) await createDemo();
-  else { applyState(greet); await loadDash(); }
-}
-
-async function createDemo() {
-  const hr = new Date().getHours();
-  const greet = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
-  const uid = Date.now().toString(36) + Math.random().toString(36).slice(2);
-
-  try {
-    const u = await req('POST', '/v1/users', { name: 'Mohammed Al-Rashidi', email: `demo-${uid}@thobii.sa` });
-    S.userId = u.user.id;
-    S.walletId = u.wallet.id;
-    S.name = u.user.name;
-    S.iban = u.user.virtual_iban;
-
-    await req('POST', '/v1/wallet/topups/app',
-      { wallet_id: S.walletId, amount_halalas: 100_000, method: 'APPLE_PAY' },
-      `boot-${uid}`);
-
-    const v = await req('POST', '/v1/vehicles', {
-      user_id: S.userId, plate: 'ABC 1234', allowed_grade: 'GASOLINE_95',
-      make_model: 'Toyota Camry 2024', tank_capacity_ml: 65_000, tag_uid: `RFID-${uid}`,
-    });
-    S.vehicleId = v.vehicle.id;
-    S.tagUid = `RFID-${uid}`;
-    S.plate = v.vehicle.plate;
-    S.makeModel = v.vehicle.make_model;
-    S.fuelType = v.vehicle.fuel_type;
-
+async function createDemo(){
+  const hr=new Date().getHours();
+  const greet=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
+  const uid=Date.now().toString(36)+Math.random().toString(36).slice(2);
+  try{
+    const u=await req('POST','/v1/users',{name:'Mohammed Al-Rashidi',email:`demo-${uid}@thobii.sa`});
+    S.userId=u.user.id; S.walletId=u.wallet.id; S.name=u.user.name; S.iban=u.user.virtual_iban;
+    await req('POST','/v1/wallet/topups/app',{wallet_id:S.walletId,amount_halalas:100000,method:'APPLE_PAY'},`boot-${uid}`);
+    const v=await req('POST','/v1/vehicles',{user_id:S.userId,plate:'ABC 1234',allowed_grade:'GASOLINE_95',make_model:'Toyota Camry 2024',tank_capacity_ml:65000,tag_uid:`RFID-${uid}`});
+    S.vehicleId=v.vehicle.id; S.tagUid=`RFID-${uid}`; S.plate=v.vehicle.plate; S.makeModel=v.vehicle.make_model; S.fuelType=v.vehicle.fuel_type;
     save(); applyState(greet); await loadDash();
-  } catch (e) {
-    console.error('Demo setup failed', e);
-    toast('Setup failed — check console');
-  }
+  }catch(e){ console.error('Demo setup failed',e); toast('Setup failed — check console'); }
 }
 
-function applyState(greet = 'Hello') {
-  const first = (S.name || '').split(' ')[0] || 'Mohammed';
-  document.getElementById('greeting').textContent = `${greet}, ${first}`;
-  document.getElementById('uname').textContent = first;
-  document.getElementById('av').textContent =
-    (S.name || 'MR').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-  if (S.plate) document.getElementById('v-plate').textContent = S.plate;
-  if (S.makeModel) document.getElementById('v-make').textContent = S.makeModel;
-  if (S.fuelType) document.getElementById('v-fuel').textContent = S.fuelType.display;
-  if (S.tagUid) document.getElementById('f-tag').value = S.tagUid;
-  if (S.iban) document.getElementById('bal-iban').textContent =
-    S.iban.slice(0, 2) + ' •••• •••• ' + S.iban.slice(-4);
+function applyState(greet='Hello'){
+  const first=(S.name||'').split(' ')[0]||'Mohammed';
+  document.getElementById('greeting').textContent=`${greet}, ${first}`;
+  document.getElementById('uname').textContent=first;
+  document.getElementById('av').textContent=(S.name||'MR').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  if(S.plate) document.getElementById('v-plate').textContent=S.plate;
+  if(S.makeModel) document.getElementById('v-make').textContent=S.makeModel;
+  if(S.fuelType) document.getElementById('v-fuel').textContent=S.fuelType.display;
+  if(S.tagUid) document.getElementById('f-tag').value=S.tagUid;
+  if(S.iban) document.getElementById('bal-iban').textContent=S.iban.slice(0,2)+' •••• •••• '+S.iban.slice(-4);
 }
 
-function save() { localStorage.setItem('thobii4', JSON.stringify(S)); }
+function save(){ localStorage.setItem('thobii5',JSON.stringify(S)); }
 
-// ── Dashboard ─────────────────────────────────────────────────────────────────
-async function loadDash() {
-  if (!S.walletId) return;
-  try {
-    const [w, stmt] = await Promise.all([
-      req('GET', `/v1/wallets/${S.walletId}`),
-      req('GET', `/v1/wallets/${S.walletId}/statement`),
-    ]);
-    document.getElementById('bal').textContent = w.balance_sar ?? '—';
-    const held = BigInt(w.held_halalas ?? '0');
-    document.getElementById('avail-txt').textContent =
-      held > 0n
-        ? `SAR ${w.available_sar} available · SAR ${(Number(held)/100).toFixed(2)} on hold`
-        : `SAR ${w.available_sar} available`;
-
-    const entries = stmt.entries ?? [];
+async function loadDash(){
+  if(!S.walletId) return;
+  try{
+    const [w,stmt]=await Promise.all([req('GET',`/v1/wallets/${S.walletId}`),req('GET',`/v1/wallets/${S.walletId}/statement`)]);
+    document.getElementById('bal').textContent=w.balance_sar??'—';
+    const held=BigInt(w.held_halalas??'0');
+    document.getElementById('avail-txt').textContent= held>0n
+      ? `SAR ${w.available_sar} available · SAR ${(Number(held)/100).toFixed(2)} on hold`
+      : `SAR ${w.available_sar} available`;
+    const entries=stmt.entries??[];
     buildTxList(entries);
-    const fills = entries.filter(e => e.type === 'CAPTURE');
-    document.getElementById('m-fills').textContent = fills.length;
-    document.getElementById('m-spend').textContent =
-      fills.reduce((s, e) => s + Math.abs(parseFloat(e.amount_sar)), 0).toFixed(2);
-  } catch (e) { console.error(e); }
+    const fills=entries.filter(e=>e.type==='CAPTURE');
+    document.getElementById('m-fills').textContent=fills.length;
+    document.getElementById('m-spend').textContent=fills.reduce((s,e)=>s+Math.abs(parseFloat(e.amount_sar)),0).toFixed(2);
+  }catch(e){ console.error(e); }
 }
 
-function dotColor(type) {
-  if (type === 'TOPUP_CREDIT') return '#22C55E';
-  if (type === 'REVERSAL') return '#F59E0B';
-  return '#F59E0B';
+function txIcon(type){
+  if(type==='TOPUP_CREDIT') return {bg:'rgba(0,122,255,0.14)',fg:'#0066CC',svg:'<svg viewBox="0 0 19 19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="2" y="5" width="15" height="10" rx="2.2"/><path d="M2 8h15"/></svg>'};
+  if(type==='REVERSAL') return {bg:'rgba(255,149,0,0.14)',fg:'#C76E00',svg:'<svg viewBox="0 0 19 19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5a5.5 5.5 0 1011 0"/><path d="M4 5v4.5h4.5"/></svg>'};
+  return {bg:'rgba(255,149,0,0.14)',fg:'#C76E00',svg:'<svg viewBox="0 0 19 19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16V6a1.4 1.4 0 011.4-1.4h4.2A1.4 1.4 0 0111 6v10"/><path d="M4 16h7"/><path d="M7.5 9.5H5.5"/><path d="M13 7v3.2"/><path d="M13 6.4c1.2 0 2.4.8 2.4 2.4v2c0 .9.7 1.5 1.5 1.5"/></svg>'};
 }
 
-function buildTxList(entries) {
-  const el = document.getElementById('tx-list');
-  if (!entries.length) {
-    el.innerHTML = `<div class="empty">
-      <div class="empty-title">No transactions yet</div>
-      <div class="empty-body">Your fill history will appear here after your first top-up and fill.</div>
-    </div>`;
+function buildTxList(entries){
+  const el=document.getElementById('tx-list');
+  if(!entries.length){
+    el.innerHTML=`<div class="empty"><div class="empty-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18"/></svg></div><div class="empty-title">No transactions yet</div><div class="empty-body">Your fill history appears here after your first top-up and fill.</div></div>`;
     return;
   }
-  const credit = t => t === 'TOPUP_CREDIT' || t === 'REVERSAL';
-  el.innerHTML = entries.slice(0, 6).map(e => `
+  const credit=t=>t==='TOPUP_CREDIT'||t==='REVERSAL';
+  el.innerHTML=entries.slice(0,6).map(e=>{ const i=txIcon(e.type); return `
     <div class="tx-row">
-      <span class="tx-dot" style="background:${dotColor(e.type)}"></span>
-      <div class="tx-body">
-        <div class="tx-title">${e.description}</div>
-        <div class="tx-time">${e.display_time}</div>
-      </div>
-      <span class="tx-amount ${credit(e.type)?'cr':'db'}">${credit(e.type)?'+':'−'}SAR ${e.amount_sar}</span>
-    </div>`).join('');
+      <div class="tx-icon" style="background:${i.bg};color:${i.fg}">${i.svg}</div>
+      <div class="tx-body"><div class="tx-title">${e.description}</div><div class="tx-time">${e.display_time}</div></div>
+      <div class="tx-amt ${credit(e.type)?'cr':'db'}">${credit(e.type)?'+':'−'}SAR ${e.amount_sar}</div>
+    </div>`; }).join('');
 }
 
-// ── Top-up modal ──────────────────────────────────────────────────────────────
-function openTopup() {
-  topupAmt = 200;
-  document.getElementById('modal-val').textContent = '200';
-  document.getElementById('custom-input').value = '';
-  document.querySelectorAll('.qa-btn').forEach(b => {
-    b.classList.toggle('on', b.textContent.trim() === '200');
-  });
-  document.getElementById('topup-overlay').classList.add('open');
+// Top-up
+function openTopup(){ topupAmt=200; document.getElementById('modal-val').textContent='200'; document.getElementById('custom-input').value=''; document.querySelectorAll('.qa-btn').forEach(b=>b.classList.toggle('on',b.textContent.trim()==='200')); document.getElementById('topup-overlay').classList.add('open'); }
+function closeTopup(){ document.getElementById('topup-overlay').classList.remove('open'); }
+function pickAmt(n){ topupAmt=n; document.getElementById('modal-val').textContent=n.toLocaleString(); document.getElementById('custom-input').value=''; document.querySelectorAll('.qa-btn').forEach(b=>b.classList.toggle('on',parseInt(b.textContent.replace(',',''))===n)); }
+function customAmt(v){ const n=parseFloat(v); if(!isNaN(n)&&n>0){ topupAmt=n; document.getElementById('modal-val').textContent=n.toLocaleString(); document.querySelectorAll('.qa-btn').forEach(b=>b.classList.remove('on')); } }
+async function doTopup(){
+  const halalas=Math.round(topupAmt*100); if(!halalas||halalas<=0) return;
+  const btn=document.getElementById('confirm-topup'); btn.disabled=true; btn.textContent='Processing…';
+  try{ await req('POST','/v1/wallet/topups/app',{wallet_id:S.walletId,amount_halalas:halalas,method:'APPLE_PAY'},`topup-${Date.now()}`); closeTopup(); toast(`SAR ${topupAmt.toFixed(2)} added successfully`); await loadDash(); }
+  catch(e){ toast(e.message); } finally{ btn.disabled=false; btn.textContent='Add Funds'; }
 }
 
-function closeTopup() { document.getElementById('topup-overlay').classList.remove('open'); }
-
-function pickAmt(n) {
-  topupAmt = n;
-  document.getElementById('modal-val').textContent = n.toLocaleString();
-  document.getElementById('custom-input').value = '';
-  document.querySelectorAll('.qa-btn').forEach(b =>
-    b.classList.toggle('on', parseInt(b.textContent.replace(',','')) === n));
-}
-
-function customAmt(v) {
-  const n = parseFloat(v);
-  if (!isNaN(n) && n > 0) {
-    topupAmt = n;
-    document.getElementById('modal-val').textContent = n.toLocaleString();
-    document.querySelectorAll('.qa-btn').forEach(b => b.classList.remove('on'));
-  }
-}
-
-async function doTopup() {
-  const halalas = Math.round(topupAmt * 100);
-  if (!halalas || halalas <= 0) return;
-  const btn = document.getElementById('confirm-topup');
-  btn.disabled = true; btn.textContent = 'Processing…';
-  try {
-    await req('POST', '/v1/wallet/topups/app',
-      { wallet_id: S.walletId, amount_halalas: halalas, method: 'APPLE_PAY' },
-      `topup-${Date.now()}`);
-    closeTopup();
-    toast(`SAR ${topupAmt.toFixed(2)} added successfully`);
-    await loadDash();
-  } catch (e) {
-    toast(e.message);
-  } finally {
-    btn.disabled = false; btn.textContent = 'Add Funds';
-  }
-}
-
-// ── Fill wizard ───────────────────────────────────────────────────────────────
-let authId = null;
-
-async function doAuth() {
-  const tag     = document.getElementById('f-tag').value.trim();
-  const station = document.getElementById('f-station').value.trim();
-  const grade   = document.getElementById('f-grade').value;
-  const errEl   = document.getElementById('ferr');
-  errEl.style.display = 'none';
-  const btn = document.getElementById('auth-btn');
-  btn.disabled = true; btn.textContent = 'Authorizing…';
-
-  try {
-    const a = await req('POST', '/v1/fuel/authorize', { tag_uid: tag, station_code: station, grade });
-    authId = a.authorization_id;
-    const maxL = parseFloat(a.max_litres);
-
-    document.getElementById('auth-box').innerHTML = `
-      <div class="auth-row"><span class="auth-key">Status</span><span class="auth-val" style="color:var(--green)">${a.status_display}</span></div>
+// Fill wizard
+let authId=null;
+async function doAuth(){
+  const tag=document.getElementById('f-tag').value.trim();
+  const station=document.getElementById('f-station').value.trim();
+  const grade=document.getElementById('f-grade').value;
+  const errEl=document.getElementById('ferr'); errEl.style.display='none';
+  const btn=document.getElementById('auth-btn'); btn.disabled=true; btn.textContent='Authorizing…';
+  try{
+    const a=await req('POST','/v1/fuel/authorize',{tag_uid:tag,station_code:station,grade});
+    authId=a.authorization_id; const maxL=parseFloat(a.max_litres);
+    document.getElementById('auth-box').innerHTML=`
+      <div class="auth-row"><span class="auth-key">Status</span><span class="auth-val" style="color:var(--green-dk)">${a.status_display}</span></div>
       <div class="auth-row"><span class="auth-key">Fuel</span><span class="auth-val">${a.fuel_type.display}</span></div>
       <div class="auth-row"><span class="auth-key">Station</span><span class="auth-val">${a.station_name}</span></div>
       <div class="auth-row"><span class="auth-key">Price / L</span><span class="auth-val">SAR ${a.price_per_litre_sar}</span></div>
       <div class="auth-row"><span class="auth-key">Max volume</span><span class="auth-val">${a.max_litres} L</span></div>
-      <div class="auth-row"><span class="auth-key">Expires</span><span class="auth-val" style="color:var(--ink-2);font-weight:500">${a.display_time}</span></div>
-    `;
-    const r = document.getElementById('lrange');
-    r.max = maxL; r.value = Math.min(35, maxL);
-    document.getElementById('rvl').textContent = Math.min(35, maxL).toFixed(1) + ' L';
+      <div class="auth-row"><span class="auth-key">Expires</span><span class="auth-val" style="color:var(--ink-2);font-weight:500">${a.display_time}</span></div>`;
+    const r=document.getElementById('lrange'); r.max=maxL; r.value=Math.min(35,maxL);
+    document.getElementById('rvl').textContent=Math.min(35,maxL).toFixed(1)+' L';
     setStep(2);
-  } catch (e) {
-    errEl.textContent = e.message;
-    errEl.style.display = 'block';
-  } finally {
-    btn.disabled = false; btn.textContent = 'Authorize at Pump';
-  }
+  }catch(e){ document.getElementById('ferr-msg').textContent=e.message; errEl.style.display='flex'; }
+  finally{ btn.disabled=false; btn.textContent='Authorize at Pump'; }
 }
 
-async function doSettle() {
-  const litres = parseFloat(document.getElementById('lrange').value);
-  const ml = Math.round(litres * 1000);
-  setStep(3);
-
-  let shown = 0;
-  const ticker = setInterval(() => {
-    shown = Math.min(shown + litres / 28, litres);
-    document.getElementById('pump-num').textContent = shown.toFixed(3);
-    if (shown >= litres) clearInterval(ticker);
-  }, 60);
-
-  await new Promise(r => setTimeout(r, 1800));
-
-  try {
-    const res = await req('POST', '/v1/fuel/settle',
-      { authorization_id: authId, millilitres_dispensed: ml },
-      `settle-${authId}`);
-    const rc = res.receipt;
-
-    document.getElementById('r-amt').textContent = 'SAR ' + rc.amount_charged_sar;
-    document.getElementById('r-sub').textContent = rc.subheadline;
-    document.getElementById('r-rows').innerHTML = `
+async function doSettle(){
+  const litres=parseFloat(document.getElementById('lrange').value);
+  const ml=Math.round(litres*1000); setStep(3);
+  const C=2*Math.PI*75; const arc=document.getElementById('pump-arc');
+  let shown=0;
+  const ticker=setInterval(()=>{ shown=Math.min(shown+litres/30,litres); document.getElementById('pump-num').textContent=shown.toFixed(3); arc.style.strokeDashoffset=C*(1-shown/litres); if(shown>=litres) clearInterval(ticker); },60);
+  await new Promise(r=>setTimeout(r,1900));
+  try{
+    const res=await req('POST','/v1/fuel/settle',{authorization_id:authId,millilitres_dispensed:ml},`settle-${authId}`);
+    const rc=res.receipt;
+    document.getElementById('r-amt').textContent='SAR '+rc.amount_charged_sar;
+    document.getElementById('r-sub').textContent=rc.subheadline;
+    document.getElementById('r-rows').innerHTML=`
       <div class="rec-row"><span class="rec-key">Station</span><span class="rec-val">${rc.station_name}</span></div>
       <div class="rec-row"><span class="rec-key">Fuel</span><span class="rec-val">${rc.fuel_type.display}</span></div>
       <div class="rec-row"><span class="rec-key">Volume</span><span class="rec-val">${rc.quantity_litres} L</span></div>
       <div class="rec-row"><span class="rec-key">Price / L</span><span class="rec-val">SAR ${rc.unit_price_sar}</span></div>
       <div class="rec-row"><span class="rec-key">New balance</span><span class="rec-val">SAR ${rc.new_balance_sar}</span></div>
-      <div class="rec-row rec-total"><span class="rec-key">Charged</span><span class="rec-val">SAR ${rc.amount_charged_sar}</span></div>
-    `;
-    document.getElementById('r-ref').textContent = rc.fill_reference + ' · ' + rc.display_time;
-
-    if (res.insights) {
-      document.getElementById('i-fills').textContent = res.insights.fills_this_month;
-      document.getElementById('i-spend').textContent = res.insights.spent_this_month_sar;
-      document.getElementById('r-ins').style.display = 'flex';
-    }
+      <div class="rec-row rec-total"><span class="rec-key">Charged</span><span class="rec-val">SAR ${rc.amount_charged_sar}</span></div>`;
+    document.getElementById('r-ref').textContent=rc.fill_reference+' · '+rc.display_time;
+    if(res.insights){ document.getElementById('i-fills').textContent=res.insights.fills_this_month; document.getElementById('i-spend').textContent=res.insights.spent_this_month_sar; document.getElementById('r-ins').style.display='flex'; }
     setStep(4); loadDash();
-  } catch (e) {
-    toast(e.message); setStep(2);
-  }
+  }catch(e){ toast(e.message); setStep(2); }
 }
 
-function resetFill() {
-  authId = null;
-  document.getElementById('ferr').style.display = 'none';
-  document.getElementById('r-ins').style.display = 'none';
-  document.getElementById('pump-num').textContent = '0.000';
+function resetFill(){
+  authId=null;
+  document.getElementById('ferr').style.display='none';
+  document.getElementById('r-ins').style.display='none';
+  document.getElementById('pump-num').textContent='0.000';
+  document.getElementById('pump-arc').style.strokeDashoffset=2*Math.PI*75;
   setStep(1); loadDash();
 }
 
-function setStep(n) {
-  for (let i = 1; i <= 4; i++) {
-    const fs = document.getElementById('fs' + i);
-    if (fs) fs.style.display = (i === n) ? 'block' : 'none';
-    const sd = document.getElementById('sd' + i);
-    if (!sd) continue;
-    sd.classList.remove('active', 'done');
-    if (i < n)  sd.classList.add('done');
-    if (i === n) sd.classList.add('active');
-    if (i < 4) {
-      const sl = document.getElementById('sl' + i);
-      if (sl) sl.style.background = i < n ? 'var(--green)' : '#E5E5E5';
-    }
+function setStep(n){
+  for(let i=1;i<=4;i++){
+    const fs=document.getElementById('fs'+i); if(fs) fs.style.display=(i===n)?'block':'none';
+    const sd=document.getElementById('sd'+i); if(!sd) continue;
+    sd.classList.remove('active','done'); if(i<n) sd.classList.add('done'); if(i===n) sd.classList.add('active');
+    if(i<4){ const sl=document.getElementById('sl'+i); if(sl) sl.style.background=i<n?'var(--green)':'var(--ink-4)'; }
   }
 }
 
-// ── Reports ───────────────────────────────────────────────────────────────────
-async function loadReports() {
-  if (!S.walletId) return;
-  try {
-    const [rc, st] = await Promise.all([
-      req('GET', '/v1/reports/reconciliation'),
-      req('GET', `/v1/wallets/${S.walletId}/statement`),
-    ]);
-    document.getElementById('r-tc').textContent = rc.topups.count;
-    document.getElementById('r-tt').textContent = 'SAR ' + rc.topups.total_sar;
-    document.getElementById('r-fc').textContent = rc.fills.count;
-    document.getElementById('r-ft').textContent = rc.fills.total_litres + ' L';
-    document.getElementById('r-sc').textContent = rc.authorizations.settled;
-    document.getElementById('r-oh').textContent = rc.outstanding_holds.count + ' holds open';
-
-    const entries = st.entries ?? [];
-    const tb = document.getElementById('stmt-body');
-    if (!entries.length) {
-      tb.innerHTML = `<tr><td colspan="4" style="padding:44px;text-align:center;color:var(--ink-3);font-size:14px">No transactions yet</td></tr>`;
-      return;
-    }
-    const credit = t => t === 'TOPUP_CREDIT' || t === 'REVERSAL';
-    const badgeMap = {
-      TOPUP_CREDIT: `<span class="tag tag-green">Top-up</span>`,
-      REVERSAL:     `<span class="tag tag-amber">Reversal</span>`,
-    };
-    tb.innerHTML = entries.map(e => {
-      const badge = badgeMap[e.type] || `<span class="tag tag-amber">Fill</span>`;
-      const clr = credit(e.type) ? 'color:var(--green)' : '';
-      return `<tr>
-        <td>${badge}</td>
-        <td style="color:var(--ink-2)">${e.description}</td>
-        <td style="color:var(--ink-3)">${e.display_time}</td>
-        <td class="r" style="${clr}">${credit(e.type)?'+':'−'}SAR ${e.amount_sar}</td>
-      </tr>`;
-    }).join('');
-  } catch (e) { console.error(e); }
+async function loadReports(){
+  if(!S.walletId) return;
+  try{
+    const [rc,st]=await Promise.all([req('GET','/v1/reports/reconciliation'),req('GET',`/v1/wallets/${S.walletId}/statement`)]);
+    document.getElementById('r-tc').textContent=rc.topups.count;
+    document.getElementById('r-tt').textContent='SAR '+rc.topups.total_sar;
+    document.getElementById('r-fc').textContent=rc.fills.count;
+    document.getElementById('r-ft').textContent=rc.fills.total_litres+' L';
+    document.getElementById('r-sc').textContent=rc.authorizations.settled;
+    document.getElementById('r-oh').textContent=rc.outstanding_holds.count+' holds open';
+    const entries=st.entries??[];
+    const tb=document.getElementById('stmt-body');
+    if(!entries.length){ tb.innerHTML=`<tr><td colspan="4" style="padding:44px;text-align:center;color:var(--ink-3)">No transactions yet</td></tr>`; return; }
+    const credit=t=>t==='TOPUP_CREDIT'||t==='REVERSAL';
+    const badge={TOPUP_CREDIT:'<span class="chip chip-green">Top-up</span>',REVERSAL:'<span class="chip chip-amber">Reversal</span>'};
+    tb.innerHTML=entries.map(e=>{ const b=badge[e.type]||'<span class="chip chip-amber">Fill</span>'; const clr=credit(e.type)?'color:var(--green-dk)':''; return `<tr><td>${b}</td><td style="color:var(--ink-2)">${e.description}</td><td style="color:var(--ink-3)">${e.display_time}</td><td class="r" style="${clr}">${credit(e.type)?'+':'−'}SAR ${e.amount_sar}</td></tr>`; }).join('');
+  }catch(e){ console.error(e); }
 }
 
-// ── Nav ───────────────────────────────────────────────────────────────────────
-const TITLES = { dashboard:'Dashboard', fill:'Simulate Fill', reports:'Reports', setup:'Account' };
-
-function go(name) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('p-' + name).classList.add('active');
+const TITLES={dashboard:'Dashboard',fill:'Simulate Fill',reports:'Reports',setup:'Account'};
+function go(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('p-'+name).classList.add('active');
   document.querySelector(`[onclick="go('${name}')"]`).classList.add('active');
-  document.getElementById('bc').textContent = TITLES[name] || name;
-
-  if (name === 'dashboard') loadDash();
-  if (name === 'reports')   loadReports();
-  if (name === 'fill' && S.tagUid) document.getElementById('f-tag').value = S.tagUid;
-  if (name === 'setup') {
-    document.getElementById('su-name').textContent   = S.name || '—';
-    document.getElementById('su-plate').textContent  = S.plate || '—';
-    document.getElementById('su-make').textContent   = S.makeModel || '—';
-    document.getElementById('su-tag').textContent    = S.tagUid || '—';
-    document.getElementById('su-wallet').textContent = S.walletId || '—';
+  document.getElementById('bc').textContent=TITLES[name]||name;
+  if(name==='dashboard') loadDash();
+  if(name==='reports') loadReports();
+  if(name==='fill'&&S.tagUid) document.getElementById('f-tag').value=S.tagUid;
+  if(name==='setup'){
+    document.getElementById('su-name').textContent=S.name||'—';
+    document.getElementById('su-plate').textContent=S.plate||'—';
+    document.getElementById('su-make').textContent=S.makeModel||'—';
+    document.getElementById('su-tag').textContent=S.tagUid||'—';
+    document.getElementById('su-wallet').textContent=S.walletId||'—';
   }
 }
 
-async function confirmReset() {
-  if (!confirm('Reset and create a fresh demo account?')) return;
-  localStorage.removeItem('thobii4');
-  S = {};
-  await createDemo();
-  go('dashboard');
+async function confirmReset(){
+  if(!confirm('Reset and create a fresh demo account?')) return;
+  localStorage.removeItem('thobii5'); S={}; await createDemo(); go('dashboard');
 }
 
 boot();
