@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Thobii</title>
   <style>
+    /* Self-hosted handwriting — no CDN dependency at runtime */
+    @font-face {
+      font-family: 'Caveat';
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url('/caveat-700.woff2') format('woff2');
+    }
     /* ════════════════════════════════════════════════════════════════════════
        THOBII — Liquid Glass UI
        Design language: Apple WWDC25 Liquid Glass
@@ -222,6 +230,8 @@
     /* ── Page heading ──────────────────────────────────────────────────────── */
     .heading { margin: 8px 4px 18px; }
     .heading h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.8px; line-height: 1.05; }
+    /* Hand-lettered greeting — the one warm, human moment; data stays precise */
+    #greeting { font-family: 'Caveat', cursive; font-size: 44px; font-weight: 700; letter-spacing: 0; line-height: 0.95; }
     .heading p { font-size: 14px; color: var(--ink-3); margin-top: 4px; font-weight: 450; }
 
     /* ════════════════════════════ BALANCE HERO ══════════════════════════════ */
