@@ -796,15 +796,17 @@
         <!-- Step 2 -->
         <div id="fs2" style="display:none" class="form-wrap">
           <div class="form-card glass">
-            <div class="form-title">Ready to Fill</div>
+            <div class="form-title">At the Pump</div>
+            <p style="font-size:13px;color:var(--ink-2);margin:-14px 0 20px;line-height:1.45">Tag verified and funds held. The attendant fuels the car — the slider stands in for the pump's meter reading.</p>
             <div class="auth-table" id="auth-box"></div>
-            <div class="field"><label class="field-label">Volume to dispense</label>
+            <div class="field"><label class="field-label">Pump meter — litres dispensed</label>
               <div class="vol">
                 <input type="range" id="lrange" min="1" max="120" value="35" oninput="document.getElementById('rvl').textContent=parseFloat(this.value).toFixed(1)+' L'">
                 <span class="vol-val" id="rvl">35.0 L</span>
               </div>
+              <div style="font-size:12px;color:var(--ink-3);margin-top:8px">In a real WAIE pump this comes from the flow meter, not a person — capped by the hold above.</div>
             </div>
-            <button class="btn btn-primary btn-full" onclick="doSettle()" style="margin-top:12px">Dispense Fuel</button>
+            <button class="btn btn-primary btn-full" onclick="doSettle()" style="margin-top:14px">Complete Fill</button>
             <button class="btn btn-glass btn-full" onclick="resetFill()" style="margin-top:8px">Cancel</button>
           </div>
         </div>
