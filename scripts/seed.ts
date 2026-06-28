@@ -88,9 +88,10 @@ async function main() {
   const now = new Date();
   await prisma.fuelPrice.createMany({
     data: [
-      { grade: 'GASOLINE_91', pricePerLitreHalalas: 125n, effectiveFrom: now },
-      { grade: 'GASOLINE_95', pricePerLitreHalalas: 150n, effectiveFrom: now },
-      { grade: 'DIESEL', pricePerLitreHalalas: 65n, effectiveFrom: now },
+      // Saudi capped pump prices: 91 = SAR 2.18, 95 = SAR 2.33, Diesel = SAR 1.79
+      { grade: 'GASOLINE_91', pricePerLitreHalalas: 218n, effectiveFrom: now },
+      { grade: 'GASOLINE_95', pricePerLitreHalalas: 233n, effectiveFrom: now },
+      { grade: 'DIESEL', pricePerLitreHalalas: 179n, effectiveFrom: now },
     ],
   });
 

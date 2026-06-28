@@ -983,7 +983,10 @@ async function req(method, path, body, ikey){
    Mirrors the real endpoints' shapes (format.ts helpers ported below) and keeps
    wallet state in localStorage so balances persist across reloads. Demo allows
    any fuel grade so the orb colours and the donut split can be explored. */
-const MK='thobii_mock5', PRICE=150, STATION='Aldrees Riyadh North';
+const MK='thobii_mock5', STATION='Aldrees Riyadh North';
+// Saudi pump prices in halalas/litre (Gasoline 91 SAR 2.18, 95 SAR 2.33, Diesel SAR 1.79)
+const PRICES={GASOLINE_91:218, GASOLINE_95:233, DIESEL:179};
+function priceOf(g){ return PRICES[g]||233; }
 let M; try{ M=JSON.parse(localStorage.getItem(MK)); }catch{} M=M||{balance:0,held:0,entries:[],auths:{},grade:'GASOLINE_95'};
 function mkSave(){ localStorage.setItem(MK, JSON.stringify(M)); }
 function mGrade(g){ return ({GASOLINE_91:{code:'GASOLINE_91',display:'Gasoline 91'},GASOLINE_95:{code:'GASOLINE_95',display:'Gasoline 95'},DIESEL:{code:'DIESEL',display:'Diesel'}})[g]||{code:g,display:g}; }
@@ -1021,9 +1024,9 @@ async function mockReq(method, path, body){
   }
   if(method==='GET' && /\/statement$/.test(path)){ return { entries:M.entries.slice() }; }
   if(method==='POST' && path==='/v1/fuel/authorize'){
-    const grade=body.grade, avail=M.balance-M.held;
-    if(avail < PRICE) throw Object.assign(new Error('Your balance is too low to authorize a fill. Top up to continue.'),{data:{}});
-    let maxMl=Math.min(120000, Math.floor(avail/PRICE*1000));
+    const grade=body.grade, price=priceOf(grade), avail=M.balance-M.held;
+    if(avail < price) throw Object.assign(new Error('Your balance is too low to authorize a fill. Top up to continue.'),{data:{}});
+    let maxMl=Math.min(120000, Math.floor(avail/price*1000));
     if(M.weeklyLimitMl){
       const remaining=Math.max(0, M.weeklyLimitMl - mWeekUsedMl());
       if(remaining < 1000) throw Object.assign(new Error('Weekly fuel limit reached for this vehicle. It frees up as the week rolls forward.'),{data:{}});
@@ -1032,16 +1035,16 @@ async function mockReq(method, path, body){
     const aid='auth_'+mUid();
     M.auths[aid]={grade,maxMl}; mkSave();
     const exp=new Date(Date.now()+300000);
-    return { authorization_id:aid, status:'AUTHORIZED', status_display:'Ready to fill', fuel_type:mGrade(grade), color_hint:mColor(grade), station_name:STATION, max_litres:(maxMl/1000).toFixed(3), max_millilitres:maxMl, price_per_litre_sar:mSar(PRICE), price_per_litre_halalas:PRICE, reserved_sar:mSar(Math.round(maxMl/1000*PRICE)), expires_at:exp.toISOString(), display_time:mTime(exp) };
+    return { authorization_id:aid, status:'AUTHORIZED', status_display:'Ready to fill', fuel_type:mGrade(grade), color_hint:mColor(grade), station_name:STATION, max_litres:(maxMl/1000).toFixed(3), max_millilitres:maxMl, price_per_litre_sar:mSar(price), price_per_litre_halalas:price, reserved_sar:mSar(Math.round(maxMl/1000*price)), expires_at:exp.toISOString(), display_time:mTime(exp) };
   }
   if(method==='POST' && path==='/v1/fuel/settle'){
-    const a=M.auths[body.authorization_id], grade=a?a.grade:M.grade;
-    const litres=body.millilitres_dispensed/1000, captured=Math.round(litres*PRICE), gd=mGrade(grade);
+    const a=M.auths[body.authorization_id], grade=a?a.grade:M.grade, price=priceOf(grade);
+    const litres=body.millilitres_dispensed/1000, captured=Math.round(litres*price), gd=mGrade(grade);
     M.balance-=captured;
     M.entries.unshift({ id:mUid(), type:'CAPTURE', amount_halalas:String(-captured), amount_sar:mSar(-captured), description:`Fuel fill — ${gd.display} · ${litres.toFixed(3)} L · ${STATION}`, display_time:mTime(new Date()), created_at:new Date().toISOString(), _litres:litres });
     if(a) delete M.auths[body.authorization_id]; mkSave();
     const fills=M.entries.filter(e=>e.type==='CAPTURE'), spent=fills.reduce((s,e)=>s+Math.abs(parseInt(e.amount_halalas)),0), now=new Date();
-    return { receipt:{ amount_charged_sar:mSar(captured), subheadline:`${litres.toFixed(3)} L of ${gd.display} at ${STATION}`, station_name:STATION, fuel_type:gd, quantity_litres:litres.toFixed(3), unit_price_sar:mSar(PRICE), new_balance_sar:mSar(M.balance), fill_reference:mFillRef(now), display_time:mTime(now) }, insights:{ fills_this_month:fills.length, spent_this_month_sar:mSar(spent) } };
+    return { receipt:{ amount_charged_sar:mSar(captured), subheadline:`${litres.toFixed(3)} L of ${gd.display} at ${STATION}`, station_name:STATION, fuel_type:gd, quantity_litres:litres.toFixed(3), unit_price_sar:mSar(price), new_balance_sar:mSar(M.balance), fill_reference:mFillRef(now), display_time:mTime(now) }, insights:{ fills_this_month:fills.length, spent_this_month_sar:mSar(spent) } };
   }
   if(method==='GET' && path==='/v1/reports/reconciliation'){
     const tops=M.entries.filter(e=>e.type==='TOPUP_CREDIT'), fills=M.entries.filter(e=>e.type==='CAPTURE');
