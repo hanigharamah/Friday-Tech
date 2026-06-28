@@ -113,7 +113,7 @@ export async function settle(params: {
     const fillRef = buildFillReference(txRecord.createdAt, txRecord.id);
     const stationName = auth.station?.name ?? 'Unknown station';
     const litresStr = (millilitresDispensed / 1000).toFixed(3);
-    const pricePerLitreSar = sarDisplay(auth.pricePerLitreHalalas / 10n);
+    const pricePerLitreSar = sarDisplay(auth.pricePerLitreHalalas);
     const capturedSar = sarDisplay(captured);
     const releasedSar = sarDisplay(released);
     const newBalanceSar = sarDisplay(newBalance);

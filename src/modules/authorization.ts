@@ -146,7 +146,7 @@ export async function authorize(params: {
 
     const fuelType = fuelGradeDisplay(grade);
     const colorHint = gradeColorHint(grade);
-    const pricePerLitre = sarDisplay(price.pricePerLitreHalalas / 10n);
+    const pricePerLitre = sarDisplay(price.pricePerLitreHalalas);
 
     return {
       authorization_id: auth.id,

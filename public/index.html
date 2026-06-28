@@ -320,6 +320,9 @@
     }
     .fuel-badge-num { font-size: 25px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
     .fuel-badge-lbl { font-size: 8.5px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; opacity: 0.85; margin-top: 3px; }
+    .wk-track { height: 10px; border-radius: 6px; background: rgba(0,0,0,0.06); overflow: hidden; }
+    .wk-fill { height: 100%; border-radius: 6px; background: linear-gradient(90deg,#FFC062,#FF9500); width: 0; transition: width .6s cubic-bezier(.22,1,.36,1); }
+    .wk-fill.warn { background: linear-gradient(90deg,#FF8A00,#FF3B30); }
     .chips { display: flex; gap: 7px; flex-wrap: wrap; }
     .chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 100px; font-size: 12px; font-weight: 600; }
     .chip-green { background: rgba(52,199,89,0.16); color: var(--green-dk); }
@@ -746,6 +749,16 @@
           </div>
         </div>
 
+        <!-- Weekly fuel limit -->
+        <div class="vehicle glass" id="weekly-card" style="margin-top:14px;display:none;flex-direction:column;align-items:stretch;gap:0">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
+            <div class="vehicle-eyebrow" style="margin:0">Weekly Fuel Limit</div>
+            <div style="font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums"><b id="wk-used">0</b> / <span id="wk-cap">0</span> L this week</div>
+          </div>
+          <div class="wk-track"><div class="wk-fill" id="wk-fill"></div></div>
+          <div style="font-size:12px;color:var(--ink-3);margin-top:8px" id="wk-note">Resets as the rolling 7-day window moves.</div>
+        </div>
+
         <!-- Activity -->
         <div style="margin-top:22px">
           <div class="section-head">
@@ -912,6 +925,16 @@
           <div class="info-row"><span class="info-key">RFID Tag</span><span class="info-val mono" id="su-tag">—</span></div>
           <div class="info-row"><span class="info-key">Wallet</span><span class="info-val mono" id="su-wallet" style="font-size:11px">—</span></div>
         </div>
+
+        <div class="info glass" style="margin-top:16px;padding:20px;max-width:480px">
+          <div class="vehicle-eyebrow" style="margin-bottom:8px">Weekly Fuel Limit</div>
+          <div style="font-size:13px;color:var(--ink-2);margin-bottom:14px;line-height:1.45">Cap how many litres this car can fill each week. Once it's hit, fills are paused until the week rolls forward. Leave empty for no limit.</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <input class="field-input" id="wk-input" type="number" min="0" max="2000" style="flex:1" placeholder="Litres per week">
+            <button class="btn btn-primary btn-sm" onclick="saveWeeklyLimit()">Save</button>
+          </div>
+        </div>
+
         <button class="btn btn-glass btn-sm" onclick="confirmReset()" style="margin-top:18px">Reset Demo Account</button>
       </div>
 
@@ -969,6 +992,7 @@ function mSar(h){ const s=h<0?'-':''; const a=Math.abs(h); return s+Math.floor(a
 function mTime(d){ const now=new Date(), ds=new Date(d.getFullYear(),d.getMonth(),d.getDate()), t0=new Date(now.getFullYear(),now.getMonth(),now.getDate()); const t=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}); if(ds.getTime()===t0.getTime()) return `Today at ${t}`; if(ds.getTime()===t0.getTime()-86400000) return `Yesterday at ${t}`; return `${d.toLocaleString('en-US',{month:'long'})} ${d.getDate()} at ${t}`; }
 let mFillN=0; function mFillRef(d){ mFillN=(mFillN+1)%10000; return `FILL-${d.toISOString().slice(0,10)}-${String(mFillN).padStart(4,'0')}`; }
 function mUid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function mWeekUsedMl(){ const since=Date.now()-7*24*3600000; return M.entries.filter(e=>e.type==='CAPTURE'&&new Date(e.created_at).getTime()>=since).reduce((s,e)=>s+(e._litres||0)*1000,0); }
 
 async function mockReq(method, path, body){
   await new Promise(r=>setTimeout(r, 110)); // touch of latency for realism
@@ -983,8 +1007,13 @@ async function mockReq(method, path, body){
     mkSave(); return { ok:true };
   }
   if(method==='POST' && path==='/v1/vehicles'){
-    M.grade=body.allowed_grade; mkSave();
-    return { vehicle:{ id:'veh_'+mUid(), plate:body.plate, make_model:body.make_model||null, tank_capacity_ml:body.tank_capacity_ml||null, status:'ACTIVE', fuel_type:mGrade(body.allowed_grade), color_hint:mColor(body.allowed_grade) }, tag: body.tag_uid?{tagUid:body.tag_uid,status:'ACTIVE'}:null };
+    M.grade=body.allowed_grade; M.weeklyLimitMl=body.weekly_litre_limit_ml||null; mkSave();
+    return { vehicle:{ id:'veh_'+mUid(), plate:body.plate, make_model:body.make_model||null, tank_capacity_ml:body.tank_capacity_ml||null, weekly_litre_limit_ml:M.weeklyLimitMl, status:'ACTIVE', fuel_type:mGrade(body.allowed_grade), color_hint:mColor(body.allowed_grade) }, tag: body.tag_uid?{tagUid:body.tag_uid,status:'ACTIVE'}:null };
+  }
+  // Set / update the weekly litres cap
+  if(method==='PATCH' && /\/limits$/.test(path)){
+    M.weeklyLimitMl = body.weekly_litre_limit_ml||null; mkSave();
+    return { weekly_litre_limit_ml:M.weeklyLimitMl };
   }
   if(method==='GET' && /^\/v1\/wallets\/[^/]+$/.test(path)){
     const avail=M.balance-M.held;
@@ -994,7 +1023,13 @@ async function mockReq(method, path, body){
   if(method==='POST' && path==='/v1/fuel/authorize'){
     const grade=body.grade, avail=M.balance-M.held;
     if(avail < PRICE) throw Object.assign(new Error('Your balance is too low to authorize a fill. Top up to continue.'),{data:{}});
-    const maxMl=Math.min(120000, Math.floor(avail/PRICE*1000)), aid='auth_'+mUid();
+    let maxMl=Math.min(120000, Math.floor(avail/PRICE*1000));
+    if(M.weeklyLimitMl){
+      const remaining=Math.max(0, M.weeklyLimitMl - mWeekUsedMl());
+      if(remaining < 1000) throw Object.assign(new Error('Weekly fuel limit reached for this vehicle. It frees up as the week rolls forward.'),{data:{}});
+      maxMl=Math.min(maxMl, remaining);
+    }
+    const aid='auth_'+mUid();
     M.auths[aid]={grade,maxMl}; mkSave();
     const exp=new Date(Date.now()+300000);
     return { authorization_id:aid, status:'AUTHORIZED', status_display:'Ready to fill', fuel_type:mGrade(grade), color_hint:mColor(grade), station_name:STATION, max_litres:(maxMl/1000).toFixed(3), max_millilitres:maxMl, price_per_litre_sar:mSar(PRICE), price_per_litre_halalas:PRICE, reserved_sar:mSar(Math.round(maxMl/1000*PRICE)), expires_at:exp.toISOString(), display_time:mTime(exp) };
@@ -1033,8 +1068,8 @@ async function createDemo(){
     const u=await req('POST','/v1/users',{name:'Mohammed Al-Rashidi',email:`demo-${uid}@thobii.sa`});
     S.userId=u.user.id; S.walletId=u.wallet.id; S.name=u.user.name; S.iban=u.user.virtual_iban;
     await req('POST','/v1/wallet/topups/app',{wallet_id:S.walletId,amount_halalas:100000,method:'APPLE_PAY'},`boot-${uid}`);
-    const v=await req('POST','/v1/vehicles',{user_id:S.userId,plate:'ABC 1234',allowed_grade:'GASOLINE_95',make_model:'Toyota Camry 2024',tank_capacity_ml:65000,tag_uid:`RFID-${uid}`});
-    S.vehicleId=v.vehicle.id; S.tagUid=`RFID-${uid}`; S.plate=v.vehicle.plate; S.makeModel=v.vehicle.make_model; S.fuelType=v.vehicle.fuel_type; S.colorHint=v.vehicle.color_hint; S.tank=v.vehicle.tank_capacity_ml;
+    const v=await req('POST','/v1/vehicles',{user_id:S.userId,plate:'ABC 1234',allowed_grade:'GASOLINE_95',make_model:'Toyota Camry 2024',tank_capacity_ml:65000,weekly_litre_limit_ml:150000,tag_uid:`RFID-${uid}`});
+    S.vehicleId=v.vehicle.id; S.tagUid=`RFID-${uid}`; S.plate=v.vehicle.plate; S.makeModel=v.vehicle.make_model; S.fuelType=v.vehicle.fuel_type; S.colorHint=v.vehicle.color_hint; S.tank=v.vehicle.tank_capacity_ml; S.weeklyLimitMl=v.vehicle.weekly_litre_limit_ml;
     save(); applyState(greet); await loadDash();
   }catch(e){ console.error('Demo setup failed',e); toast('Setup failed — check console'); }
 }
@@ -1073,6 +1108,7 @@ async function loadDash(){
     const entries=stmt.entries??[];
     buildTxList(entries);
     renderSpark(entries);
+    renderWeekly(entries);
     const fills=entries.filter(e=>e.type==='CAPTURE');
     document.getElementById('m-fills').textContent=fills.length;
     document.getElementById('m-spend').textContent=fmt(fills.reduce((s,e)=>s+Math.abs(parseFloat(e.amount_sar)),0));
@@ -1116,6 +1152,34 @@ function renderSpark(entries){
          <linearGradient id="gToday" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFB84D"/><stop offset="1" stop-color="#F57C00"/></linearGradient>
        </defs>${bars}
      </svg>`;
+}
+
+// Weekly fuel-limit usage bar
+function litresFromDesc(d){ const m=d&&d.match(/·\s*([\d.]+)\s*L/); return m?parseFloat(m[1]):0; }
+function renderWeekly(entries){
+  const card=document.getElementById('weekly-card');
+  if(!S.weeklyLimitMl){ card.style.display='none'; return; }
+  const since=Date.now()-7*24*3600000;
+  const usedL=entries.filter(e=>e.type==='CAPTURE'&&new Date(e.created_at).getTime()>=since).reduce((s,e)=>s+litresFromDesc(e.description),0);
+  const capL=S.weeklyLimitMl/1000, pct=capL?Math.min(100, usedL/capL*100):0;
+  document.getElementById('wk-used').textContent=usedL.toFixed(1);
+  document.getElementById('wk-cap').textContent=capL.toFixed(0);
+  const fill=document.getElementById('wk-fill'); fill.style.width=pct+'%'; fill.classList.toggle('warn', pct>=85);
+  document.getElementById('wk-note').textContent = pct>=100
+    ? 'Limit reached — fills are paused until the week rolls forward.'
+    : 'Resets as the rolling 7-day window moves.';
+  card.style.display='flex';
+}
+
+async function saveWeeklyLimit(){
+  const v=parseFloat(document.getElementById('wk-input').value);
+  const ml=(!isNaN(v)&&v>0)?Math.round(v*1000):null;
+  try{
+    await req('PATCH', `/v1/vehicles/${S.vehicleId}/limits`, { weekly_litre_limit_ml:ml });
+    S.weeklyLimitMl=ml; save();
+    toast(ml?`Weekly limit set to ${v.toFixed(0)} L`:'Weekly limit removed');
+    loadDash();
+  }catch(e){ toast(e.message); }
 }
 
 function buildTxList(entries){
@@ -1286,6 +1350,7 @@ function go(name){
     document.getElementById('su-make').textContent=S.makeModel||'—';
     document.getElementById('su-tag').textContent=S.tagUid||'—';
     document.getElementById('su-wallet').textContent=S.walletId||'—';
+    document.getElementById('wk-input').value=S.weeklyLimitMl?(S.weeklyLimitMl/1000):'';
   }
 }
 
