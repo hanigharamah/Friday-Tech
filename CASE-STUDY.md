@@ -43,6 +43,14 @@ Honest tension: fuel retail margins are thin, so the fee only clears if it pays 
 6. **Market-accurate pricing.** Government-capped Saudi pump prices per grade: 91 = SAR 2.18, 95 = SAR 2.33, Diesel = SAR 1.79 ([GlobalPetrolPrices](https://www.globalpetrolprices.com/Saudi-Arabia/gasoline_prices/), [KSA Expats](https://ksaexpats.com/saudi-arabia-fuel-prices/)).
 7. **Distribution through the demo.** The deployed app runs a full in-browser mock of the API — anyone can authorize, fill, and read a receipt without signing up or touching a database.
 
+## What's Real, What's Not
+
+**Genuinely built and tested** — the money core: append-only ledger, hold → capture authorization, idempotency keys on every money endpoint, integer money math (no floating point), wallet locking under concurrency, velocity and volume limits, and daily reconciliation — verified by 99 automated tests against a real PostgreSQL.
+
+**Deliberately out of scope at this stage** — live payment rails (top-ups are simulated), KYC/AML, user authentication, and physical pump integration. Each is scoped, not forgotten: rails via a mada/PSP gateway, KYC through a licensed partner, and the flow-meter settle spec sits on the roadmap.
+
+Knowing which half is which is the credibility test for any fintech demo.
+
 ## Regulation
 
 A stored-value wallet in Saudi Arabia is regulated e-money. Launch path: the **SAMA Regulatory Sandbox**, or partnering with a licensed EMI, with mada / Apple Pay rails for top-ups. Licensing is treated as a launch dependency, not an afterthought.
