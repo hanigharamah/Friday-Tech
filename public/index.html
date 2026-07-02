@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thobii</title>
+  <style>
+    /* Self-hosted handwriting — no CDN dependency at runtime */
+    @font-face {
+      font-family: 'Caveat';
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url('caveat-700.woff2') format('woff2');
+    }
+    /* ════════════════════════════════════════════════════════════════════════
+       THOBII — Liquid Glass UI
+       Design language: Apple WWDC25 Liquid Glass
+       · Glass material lives on the navigation/control layer only
+       · Content stays solid and legible (hierarchy via material opacity)
+       · Ambient gradient gives the glass something to refract & lens
+       · Concentric corner radii · 8pt spacing grid · SF Pro typography
+       ════════════════════════════════════════════════════════════════════════ */
+
+    :root {
+      /* Brand */
+      --amber:     #FF9500;   /* iOS systemOrange */
+      --amber-dk:  #C76E00;
+      --amber-tint:rgba(255,149,0,0.14);
+      --green:     #34C759;   /* iOS systemGreen */
+      --green-dk:  #248A3D;
+      --red:       #FF3B30;
+
+      /* Ink — true black-grey, like iOS labels */
+      --ink:    #1C1C1E;
+      --ink-2:  rgba(60,60,67,0.62);   /* secondaryLabel */
+      --ink-3:  rgba(60,60,67,0.38);   /* tertiaryLabel  */
+      --ink-4:  rgba(60,60,67,0.20);
+
+      /* Glass tints */
+      --glass-nav:     rgba(255,255,255,0.50);
+      --glass-content: rgba(255,255,255,0.66);
+      --glass-bright:  rgba(255,255,255,0.78);
+      --hairline:      rgba(255,255,255,0.55);
+      --hairline-dk:   rgba(0,0,0,0.06);
+
+      /* Specular + depth shadow stack (the "lit glass" look) */
+      --spec:
+        inset 0 1px 0 0 rgba(255,255,255,0.85),
+        inset 0 0 0 1px rgba(255,255,255,0.30),
+        inset 0 -8px 24px -12px rgba(255,255,255,0.5);
+      --lift:
+        0 1px 1px rgba(40,28,8,0.04),
+        0 8px 20px -6px rgba(40,28,8,0.14),
+        0 24px 48px -16px rgba(40,28,8,0.16);
+
+      /* Concentric radii (8pt-derived) */
+      --r-xl: 30px;
+      --r-lg: 22px;
+      --r-md: 16px;
+      --r-sm: 12px;
+
+      --blur: 28px;
+    }
+
+    * , *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      color: var(--ink);
+      min-height: 100vh;
+      font-size: 15px;
+      line-height: 1.4;
+      letter-spacing: -0.01em;
+      overflow-x: hidden;
+    }
+
+    /* ── Ambient environment ── the world the glass lives in ────────────────── */
+    .ambient {
+      position: fixed; inset: 0; z-index: -2;
+      background:
+        radial-gradient(820px 640px at 10% 2%,  rgba(255,193,110,0.78), transparent 58%),
+        radial-gradient(760px 560px at 92% 12%, rgba(255,138,76,0.62),  transparent 55%),
+        radial-gradient(680px 620px at 82% 96%, rgba(150,176,255,0.40), transparent 60%),
+        radial-gradient(720px 680px at 18% 96%, rgba(255,214,150,0.62), transparent 60%),
+        linear-gradient(180deg, #FBF7F2 0%, #F4F0EB 100%);
+    }
+    /* drifting light blooms — slow, organic, sub-perceptual */
+    .ambient::before, .ambient::after {
+      content: ''; position: absolute; border-radius: 50%; filter: blur(60px);
+    }
+    .ambient::before {
+      width: 540px; height: 540px; top: -120px; left: 8%;
+      background: radial-gradient(circle, rgba(255,170,70,0.40), transparent 70%);
+      animation: drift1 26s ease-in-out infinite;
+    }
+    .ambient::after {
+      width: 460px; height: 460px; bottom: -100px; right: 12%;
+      background: radial-gradient(circle, rgba(120,150,255,0.30), transparent 70%);
+      animation: drift2 32s ease-in-out infinite;
+    }
+    @keyframes drift1 { 0%,100%{ transform: translate(0,0) scale(1);} 50%{ transform: translate(60px,40px) scale(1.12);} }
+    @keyframes drift2 { 0%,100%{ transform: translate(0,0) scale(1);} 50%{ transform: translate(-50px,-30px) scale(1.1);} }
+
+    /* film grain — the subtle texture Apple wallpapers always have */
+    .grain {
+      position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 0.035;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    /* ════════════════════════════ GLASS MATERIAL ════════════════════════════ */
+    .glass {
+      --mx: 50%; --my: -20%;
+      position: relative;
+      background: var(--glass-content);
+      border-radius: var(--r-lg);
+      box-shadow: var(--spec), var(--lift);
+      -webkit-backdrop-filter: blur(var(--blur)) saturate(180%) brightness(1.04);
+      backdrop-filter: blur(var(--blur)) saturate(180%) brightness(1.04);
+      border: 0.5px solid var(--hairline);
+    }
+    .glass--nav { background: var(--glass-nav); }
+
+    /* Pointer-reactive specular — light catches the surface as the cursor moves,
+       the way real Liquid Glass responds to motion. soft-light keeps it physical. */
+    .glass::after {
+      content: ''; position: absolute; inset: 0; border-radius: inherit;
+      pointer-events: none; z-index: 2;
+      background: radial-gradient(380px circle at var(--mx) var(--my),
+                  rgba(255,255,255,0.55), rgba(255,255,255,0.10) 38%, transparent 62%);
+      mix-blend-mode: soft-light;
+      opacity: 0; transition: opacity .35s ease;
+    }
+    .glass:hover::after { opacity: 1; }
+
+    /* Liquid refraction — feDisplacementMap warps the lensed backdrop at the edges.
+       Applied to a backing layer so foreground text stays razor-sharp. */
+    .glass--liquid { isolation: isolate; overflow: hidden; }
+    .glass--liquid > .lens {
+      content: ''; position: absolute; inset: 0; z-index: 0; border-radius: inherit;
+      -webkit-backdrop-filter: blur(3px) saturate(150%);
+      backdrop-filter: blur(3px) saturate(150%);
+      filter: url(#liquid-lens);
+    }
+    .glass--liquid > * { position: relative; z-index: 1; }
+
+    /* ════════════════════════════ APP SHELL ═════════════════════════════════ */
+    .app { display: flex; min-height: 100vh; padding: 14px; gap: 14px; }
+
+    /* ── Sidebar — a floating glass rail ─────────────────────────────────────── */
+    .sidebar {
+      width: 232px; min-width: 232px;
+      position: sticky; top: 14px;
+      height: calc(100vh - 28px);
+      display: flex; flex-direction: column;
+      padding: 8px;
+      border-radius: var(--r-xl);
+      z-index: 60;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; padding: 14px 12px 16px; }
+    .brand-mark {
+      width: 36px; height: 36px; border-radius: 11px;
+      background: linear-gradient(140deg, #FFC062, #FF9500 55%, #E97200);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 4px 12px rgba(255,140,0,0.40);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 17px; font-weight: 700; flex-shrink: 0;
+    }
+    .brand-name { font-family: 'Caveat', cursive; font-size: 26px; font-weight: 700; letter-spacing: 0; line-height: 1; }
+    .brand-name b { font-weight: 700; }
+
+    .nav { display: flex; flex-direction: column; gap: 2px; padding: 0 4px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 11px;
+      padding: 10px 12px; border-radius: 13px;
+      color: var(--ink-2); font-size: 14.5px; font-weight: 500;
+      cursor: pointer; user-select: none;
+      transition: background .18s ease, color .18s ease, box-shadow .18s ease;
+    }
+    .nav-item svg { width: 19px; height: 19px; flex-shrink: 0; opacity: 0.85; }
+    .nav-item:hover { color: var(--ink); background: rgba(255,255,255,0.45); }
+    .nav-item.active {
+      color: var(--amber-dk); font-weight: 600;
+      background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.5));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 2px 8px rgba(40,28,8,0.10);
+    }
+    .nav-item.active svg { opacity: 1; }
+
+    .nav-foot {
+      margin-top: auto; padding: 14px 14px 10px;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--ink-3); font-weight: 500;
+    }
+    .live { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 0 rgba(52,199,89,0.5); animation: live 2.4s ease-out infinite; }
+    @keyframes live { 0%{box-shadow:0 0 0 0 rgba(52,199,89,0.45);} 70%,100%{box-shadow:0 0 0 6px rgba(52,199,89,0);} }
+
+    /* ── Content column ──────────────────────────────────────────────────────── */
+    .content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+
+    /* Top bar — glass, floating */
+    .topbar {
+      position: sticky; top: 14px; z-index: 50;
+      display: flex; align-items: center;
+      padding: 11px 18px; border-radius: var(--r-lg);
+    }
+    .topbar-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+    .user-pill {
+      margin-left: auto; display: flex; align-items: center; gap: 9px;
+      padding: 5px 14px 5px 5px; border-radius: 100px;
+      background: rgba(255,255,255,0.6);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 1px 4px rgba(40,28,8,0.08);
+      font-size: 13.5px; font-weight: 550; cursor: pointer;
+    }
+    .av {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: linear-gradient(140deg, #FFC062, #FF8A00);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 0.3px;
+    }
+
+    .scroll { padding: 2px; }
+    .page { display: none; }
+    .page.active { display: block; animation: enter .4s cubic-bezier(.22,1,.36,1); }
+    @keyframes enter { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: none; } }
+
+    /* ── Page heading ──────────────────────────────────────────────────────── */
+    .heading { margin: 8px 4px 18px; }
+    .heading h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.8px; line-height: 1.05; }
+    /* Hand-lettered greeting — the one warm, human moment; data stays precise */
+    #greeting { font-family: 'Caveat', cursive; font-size: 44px; font-weight: 700; letter-spacing: 0; line-height: 0.95; }
+    .heading p { font-size: 14px; color: var(--ink-3); margin-top: 4px; font-weight: 450; }
+
+    /* ════════════════════════════ BALANCE HERO ══════════════════════════════ */
+    .hero {
+      padding: 30px 32px 26px;
+      border-radius: var(--r-xl);
+      background: var(--glass-bright);
+    }
+    .hero-grid { display: flex; gap: 28px; align-items: stretch; }
+    .hero-left { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .hero-right {
+      width: 270px; flex-shrink: 0;
+      padding-left: 28px; border-left: 0.5px solid var(--hairline-dk);
+      display: flex; flex-direction: column;
+    }
+    .hero-eyebrow {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 600; letter-spacing: 0.4px;
+      color: var(--ink-2); text-transform: uppercase; margin-bottom: 14px;
+    }
+    .hero-eyebrow svg { width: 15px; height: 15px; opacity: 0.6; }
+    .hero-amount { display: flex; align-items: baseline; gap: 8px; }
+    .hero-cur { font-size: 24px; font-weight: 600; color: var(--ink-2); }
+    .hero-num { font-size: 60px; font-weight: 700; letter-spacing: -3px; line-height: 0.95; font-variant-numeric: tabular-nums; }
+    .hero-avail { font-size: 13.5px; color: var(--ink-2); margin-top: 8px; font-weight: 450; }
+    .hero-bottom { display: flex; align-items: flex-end; justify-content: space-between; margin-top: auto; padding-top: 24px; }
+    .hero-actions { display: flex; gap: 9px; }
+    .hero-iban { font-size: 12px; letter-spacing: 1.6px; color: var(--ink-3); font-variant-numeric: tabular-nums; font-weight: 500; }
+
+    /* 7-day spending chart — Apple Card "weekly activity" treatment */
+    .spark-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 2px; }
+    .spark-title { font-size: 12px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--ink-2); }
+    .spark-total { font-size: 22px; font-weight: 700; letter-spacing: -0.6px; font-variant-numeric: tabular-nums; margin: 2px 0 16px; }
+    .spark-total small { font-size: 13px; font-weight: 600; color: var(--ink-2); margin-right: 3px; }
+    .spark-bars { margin-top: auto; }
+    .spark-bars svg { display: block; width: 100%; }
+    .spark-bars rect { transition: height .55s cubic-bezier(.22,1,.36,1), y .55s cubic-bezier(.22,1,.36,1); }
+
+    /* ── Glass buttons ───────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 11px 20px; border-radius: 100px;
+      font-family: inherit; font-size: 14px; font-weight: 600; letter-spacing: -0.1px;
+      cursor: pointer; border: none; white-space: nowrap;
+      transition: transform .14s cubic-bezier(.34,1.56,.64,1), filter .14s ease, box-shadow .14s ease;
+    }
+    .btn:active { transform: scale(.95); }
+    .btn:disabled { opacity: .45; pointer-events: none; }
+    .btn svg { width: 15px; height: 15px; }
+    .btn-primary {
+      background: linear-gradient(180deg, #FFAE2E, #FF9500 60%, #F08600);
+      color: #fff;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 4px 14px rgba(255,140,0,0.40);
+    }
+    .btn-primary:hover { filter: brightness(1.04); box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 6px 20px rgba(255,140,0,0.5); }
+    .btn-glass {
+      background: rgba(255,255,255,0.55);
+      color: var(--ink);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.85), inset 0 0 0 0.5px rgba(255,255,255,0.4), 0 2px 8px rgba(40,28,8,0.10);
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    }
+    .btn-glass:hover { background: rgba(255,255,255,0.72); }
+    .btn-full { width: 100%; }
+    .btn-sm { padding: 9px 16px; font-size: 13px; }
+
+    /* ── Cards / grids ──────────────────────────────────────────────────────── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+    .stack { display: flex; flex-direction: column; gap: 14px; }
+
+    .stat { padding: 22px; border-radius: var(--r-lg); }
+    .stat-label { font-size: 12px; font-weight: 550; color: var(--ink-2); margin-bottom: 10px; }
+    .stat-num { font-size: 34px; font-weight: 700; letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; }
+    .stat-unit { font-size: 12.5px; color: var(--ink-3); margin-top: 5px; }
+
+    /* Vehicle */
+    .vehicle { padding: 22px; border-radius: var(--r-lg); display: flex; align-items: center; gap: 20px; }
+    .vehicle-info { flex: 1; min-width: 0; }
+    .vehicle-eyebrow { font-size: 11px; font-weight: 650; letter-spacing: 0.6px; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px; }
+    .vehicle-plate { font-size: 23px; font-weight: 700; letter-spacing: 1.5px; }
+    .vehicle-make { font-size: 13px; color: var(--ink-2); margin: 3px 0 14px; }
+    .fuel-badge {
+      width: 76px; height: 76px; border-radius: 22px; flex-shrink: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.45), 0 6px 18px rgba(0,0,0,0.14);
+    }
+    .fuel-badge-num { font-size: 25px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+    .fuel-badge-lbl { font-size: 8.5px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; opacity: 0.85; margin-top: 3px; }
+    .wk-track { height: 10px; border-radius: 6px; background: rgba(0,0,0,0.06); overflow: hidden; }
+    .wk-fill { height: 100%; border-radius: 6px; background: linear-gradient(90deg,#FFC062,#FF9500); width: 0; transition: width .6s cubic-bezier(.22,1,.36,1); }
+    .wk-fill.warn { background: linear-gradient(90deg,#FF8A00,#FF3B30); }
+    .chips { display: flex; gap: 7px; flex-wrap: wrap; }
+    .chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 100px; font-size: 12px; font-weight: 600; }
+    .chip-green { background: rgba(52,199,89,0.16); color: var(--green-dk); }
+    .chip-amber { background: var(--amber-tint); color: var(--amber-dk); }
+    .chip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    /* Section */
+    .section-head { display: flex; align-items: center; justify-content: space-between; margin: 4px 6px 12px; }
+    .section-head h2 { font-size: 18px; font-weight: 650; letter-spacing: -0.3px; }
+    .section-link { font-size: 13.5px; color: var(--amber-dk); font-weight: 550; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; }
+    .section-link:hover { opacity: .7; }
+
+    /* Transactions */
+    .panel { border-radius: var(--r-lg); overflow: hidden; }
+    .tx-row { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 13px; padding: 13px 18px; }
+    .tx-row + .tx-row { border-top: 0.5px solid var(--hairline-dk); }
+    .tx-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); }
+    .tx-icon svg { width: 19px; height: 19px; }
+    .tx-body { min-width: 0; }
+    .tx-title { font-size: 14px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tx-time { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+    .tx-amt { font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; text-align: right; }
+    .tx-amt.cr { color: var(--green-dk); }
+    .tx-amt.db { color: var(--ink); }
+
+    .empty { padding: 56px 24px; text-align: center; }
+    .empty-mark { width: 52px; height: 52px; border-radius: 16px; background: rgba(255,255,255,0.6); box-shadow: inset 0 1px 0 rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+    .empty-mark svg { width: 24px; height: 24px; color: var(--ink-3); }
+    .empty-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+    .empty-body { font-size: 13px; color: var(--ink-3); line-height: 1.6; max-width: 250px; margin: 0 auto; }
+
+    /* ════════════════════════════ FILL WIZARD ═══════════════════════════════ */
+    .steps { display: flex; align-items: center; margin: 4px 4px 22px; }
+    .step { display: flex; align-items: center; }
+    .step-dot {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: rgba(255,255,255,0.7); color: var(--ink-3);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), inset 0 0 0 0.5px var(--ink-4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+      transition: all .25s cubic-bezier(.34,1.56,.64,1);
+    }
+    .step.active .step-dot { background: linear-gradient(180deg,#FFAE2E,#FF9500); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 3px 10px rgba(255,140,0,0.45); }
+    .step.done .step-dot { background: var(--green); color: #fff; box-shadow: 0 2px 8px rgba(52,199,89,0.4); }
+    .step-label { font-size: 12px; color: var(--ink-3); margin-left: 7px; font-weight: 500; white-space: nowrap; }
+    .step.active .step-label { color: var(--amber-dk); font-weight: 600; }
+    .step.done .step-label { color: var(--ink-2); }
+    .step-line { flex: 1; height: 1.5px; background: var(--ink-4); margin: 0 10px; min-width: 16px; border-radius: 1px; transition: background .3s ease; }
+
+    .form-wrap { max-width: 520px; }
+    .form-card { padding: 28px; border-radius: var(--r-xl); }
+    .form-title { font-size: 19px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 22px; }
+
+    .field { margin-bottom: 16px; }
+    .field-label { display: block; font-size: 11.5px; font-weight: 650; letter-spacing: 0.5px; text-transform: uppercase; color: var(--ink-2); margin-bottom: 7px; }
+    .field-input {
+      width: 100%; padding: 12px 14px; border-radius: 13px;
+      font-family: inherit; font-size: 15px; color: var(--ink);
+      background: rgba(255,255,255,0.55);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), inset 0 0 0 1px rgba(0,0,0,0.05);
+      border: none; outline: none; appearance: none;
+      transition: box-shadow .18s ease, background .18s ease;
+    }
+    .field-input:focus { background: rgba(255,255,255,0.85); box-shadow: inset 0 0 0 2px var(--amber), 0 0 0 4px var(--amber-tint); }
+    .field-input::placeholder { color: var(--ink-3); }
+    select.field-input { cursor: pointer; }
+
+    .vol { display: flex; align-items: center; gap: 16px; padding: 6px 2px; }
+    .vol input[type=range] {
+      flex: 1; appearance: none; height: 6px; border-radius: 3px; outline: none; cursor: pointer;
+      background: rgba(0,0,0,0.08);
+    }
+    .vol input[type=range]::-webkit-slider-thumb {
+      appearance: none; width: 24px; height: 24px; border-radius: 50%;
+      background: #fff; cursor: grab;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 1px 3px rgba(0,0,0,0.2), 0 4px 10px rgba(40,28,8,0.18);
+      border: 0.5px solid rgba(0,0,0,0.04);
+    }
+    .vol-val { font-size: 17px; font-weight: 700; color: var(--amber-dk); min-width: 66px; text-align: right; font-variant-numeric: tabular-nums; }
+
+    .auth-table { border-radius: 14px; overflow: hidden; margin-bottom: 20px; background: rgba(255,255,255,0.4); box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.5); }
+    .auth-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 15px; font-size: 14px; }
+    .auth-row + .auth-row { border-top: 0.5px solid var(--hairline-dk); }
+    .auth-key { color: var(--ink-2); }
+    .auth-val { font-weight: 600; }
+
+    .err {
+      display: flex; align-items: flex-start; gap: 9px;
+      background: rgba(255,59,48,0.10); color: #C0160E;
+      padding: 12px 14px; border-radius: 13px; font-size: 13.5px; line-height: 1.45; margin-bottom: 16px;
+      box-shadow: inset 0 0 0 0.5px rgba(255,59,48,0.2);
+    }
+    .err svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+
+    /* Pump screen */
+    .pump { padding: 52px 40px; border-radius: var(--r-xl); text-align: center; }
+    .pump-ring { position: relative; width: 168px; height: 168px; margin: 0 auto 8px; }
+    .pump-ring svg { transform: rotate(-90deg); overflow: visible; }
+    .pump-track { fill: none; stroke: rgba(0,0,0,0.06); stroke-width: 10; }
+    .pump-bar { fill: none; stroke: url(#pump-grad); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 471; stroke-dashoffset: 471; transition: stroke-dashoffset .08s linear; filter: drop-shadow(0 2px 6px rgba(255,140,0,0.4)); }
+    .pump-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .pump-num { font-size: 38px; font-weight: 700; letter-spacing: -1.5px; font-variant-numeric: tabular-nums; line-height: 1; }
+    .pump-unit { font-size: 11px; font-weight: 650; letter-spacing: 2.5px; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
+    .pump-status { font-size: 13.5px; color: var(--ink-2); margin-top: 26px; font-weight: 500; }
+    .pump-status span { animation: blink 1.4s ease-in-out infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* Receipt */
+    .receipt { border-radius: var(--r-xl); overflow: hidden; }
+    .receipt-hero { padding: 38px 32px 26px; text-align: center; }
+    @keyframes pop { from{transform:scale(.4);opacity:0} to{transform:scale(1);opacity:1} }
+
+    /* Fuel-fill success orb — a little glass sphere filling with the grade's
+       fuel, then a check strokes on. Reads as "your fill is done." */
+    .fuel-orb { --fuel:#FF9500; width:70px; height:70px; margin:0 auto 18px; filter: drop-shadow(0 8px 20px rgba(40,28,8,0.16)); }
+    .fuel-orb svg { display:block; transform-origin:center; animation: orbPop .45s cubic-bezier(.34,1.56,.64,1) both; }
+    .fuel-rise { animation: fuelRise 1.15s cubic-bezier(.33,0,.2,1) both; }
+    .wave-front { animation: waveScroll 1.05s linear infinite; }
+    .wave-back  { animation: waveScroll 1.75s linear infinite; }
+    .bubble { opacity:0; animation: bubbleUp 1.5s ease-in-out infinite; }
+    .bubble.b1 { animation-delay:.55s; } .bubble.b2 { animation-delay:1s; }
+    .orb-check { stroke-dasharray:40; stroke-dashoffset:40; animation: checkDraw .4s ease-out forwards; animation-delay:1.05s; }
+    @keyframes orbPop  { 0%{transform:scale(.55);opacity:0} 60%{transform:scale(1.06)} 100%{transform:scale(1);opacity:1} }
+    @keyframes fuelRise{ from{transform:translateY(70px)} to{transform:translateY(4px)} }
+    @keyframes waveScroll{ from{transform:translateX(0)} to{transform:translateX(-36px)} }
+    @keyframes bubbleUp{ 0%{transform:translateY(0);opacity:0} 25%{opacity:.6} 100%{transform:translateY(-42px);opacity:0} }
+    @keyframes checkDraw{ to{stroke-dashoffset:0} }
+    .receipt-thanks { font-family: 'Caveat', cursive; font-size: 30px; font-weight: 700; color: var(--ink); line-height: 1; margin-bottom: 12px; }
+    .receipt-amt { font-size: 44px; font-weight: 700; letter-spacing: -2px; font-variant-numeric: tabular-nums; line-height: 1; }
+    .receipt-sub { font-size: 14px; color: var(--ink-2); margin-top: 8px; }
+    .receipt-rows { border-top: 0.5px solid var(--hairline-dk); }
+    .rec-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; font-size: 14px; }
+    .rec-row + .rec-row { border-top: 0.5px solid var(--hairline-dk); }
+    .rec-key { color: var(--ink-2); }
+    .rec-val { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .rec-total { background: rgba(255,149,0,0.07); }
+    .rec-total .rec-key { font-weight: 650; color: var(--ink); }
+    .rec-total .rec-val { color: var(--amber-dk); font-size: 15px; }
+    .receipt-foot { padding: 14px; text-align: center; font-size: 11px; letter-spacing: 1px; color: var(--ink-3); font-variant-numeric: tabular-nums; border-top: 0.5px solid var(--hairline-dk); }
+
+    .insights { display: flex; border-radius: var(--r-md); overflow: hidden; margin-top: 14px; }
+    .ins { flex: 1; padding: 18px; text-align: center; }
+    .ins + .ins { border-left: 0.5px solid var(--hairline-dk); }
+    .ins-num { font-size: 22px; font-weight: 700; color: var(--green-dk); font-variant-numeric: tabular-nums; }
+    .ins-lbl { font-size: 11px; color: var(--ink-3); margin-top: 3px; font-weight: 500; }
+
+    /* ── Reports ───────────────────────────────────────────────────────────── */
+    .metric { padding: 20px; border-radius: var(--r-lg); }
+    .metric-label { font-size: 11.5px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--ink-2); margin-bottom: 9px; }
+    .metric-val { font-size: 32px; font-weight: 700; letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; }
+    .metric-sub { font-size: 12px; color: var(--ink-3); margin-top: 5px; }
+
+    .reports-top { display: grid; grid-template-columns: 300px 1fr; gap: 14px; margin-bottom: 22px; }
+    .donut-card { padding: 24px; border-radius: var(--r-lg); }
+    .donut-title { font-size: 11.5px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--ink-2); margin-bottom: 16px; }
+    .donut-wrap { position: relative; width: 168px; height: 168px; margin: 0 auto 20px; }
+    .donut-wrap svg { display: block; transform: rotate(-90deg); }
+    .donut-wrap circle { transition: stroke-dasharray .7s cubic-bezier(.22,1,.36,1); }
+    .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .donut-total { font-size: 25px; font-weight: 700; letter-spacing: -0.8px; font-variant-numeric: tabular-nums; }
+    .donut-total::before { content: 'SAR '; font-size: 12px; font-weight: 600; color: var(--ink-3); letter-spacing: 0; }
+    .donut-cap { font-size: 11px; color: var(--ink-3); font-weight: 500; margin-top: 3px; }
+    .legend { display: flex; flex-direction: column; gap: 10px; }
+    .legend-row { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; box-shadow: inset 0 1px 0 rgba(255,255,255,0.4); }
+    .legend-name { color: var(--ink-2); }
+    .legend-val { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
+    .summary-card { padding: 4px 24px; border-radius: var(--r-lg); display: flex; flex-direction: column; justify-content: center; }
+    .sum-row { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
+    .sum-row + .sum-row { border-top: 0.5px solid var(--hairline-dk); }
+    .sum-label { font-size: 14px; font-weight: 600; }
+    .sum-sub { font-size: 12px; color: var(--ink-3); margin-top: 3px; }
+    .sum-val { font-size: 30px; font-weight: 700; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+
+    .table { width: 100%; border-collapse: collapse; }
+    .table th { font-size: 11px; font-weight: 650; letter-spacing: 0.5px; text-transform: uppercase; color: var(--ink-3); text-align: left; padding: 13px 18px; border-bottom: 0.5px solid var(--hairline-dk); }
+    .table td { padding: 13px 18px; font-size: 14px; vertical-align: middle; }
+    .table tr + tr td { border-top: 0.5px solid var(--hairline-dk); }
+    .table tr:hover td { background: rgba(255,255,255,0.4); }
+    .table .r { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* ── Account ───────────────────────────────────────────────────────────── */
+    .info { max-width: 480px; border-radius: var(--r-lg); overflow: hidden; }
+    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; font-size: 14px; }
+    .info-row + .info-row { border-top: 0.5px solid var(--hairline-dk); }
+    .info-key { color: var(--ink-2); font-weight: 500; }
+    .info-val { font-weight: 600; }
+    .mono { font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 12px; color: var(--ink-3); }
+
+    /* ── Case study ────────────────────────────────────────────────────────── */
+    .cs { max-width: 720px; }
+    .cs-block { padding: 24px 26px; border-radius: var(--r-lg); margin-bottom: 14px; }
+    .cs-label { font-family: 'Caveat', cursive; font-size: 26px; font-weight: 700; margin-bottom: 10px; color: var(--amber-dk); }
+    .cs-p { font-size: 14.5px; line-height: 1.65; color: var(--ink); }
+    .cs-p + .cs-p { margin-top: 10px; }
+    .cs-p b { font-weight: 650; }
+    .cs-fine { font-size: 13px; color: var(--ink-2); margin-top: 12px; }
+    .cs-math { margin: 14px 0 2px; border-radius: 14px; overflow: hidden; background: rgba(255,255,255,0.45); box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.05); }
+    .cs-math-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 10px 16px; font-size: 13.5px; color: var(--ink-2); }
+    .cs-math-row + .cs-math-row { border-top: 0.5px solid var(--hairline-dk); }
+    .cs-math-row b { color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .cs-dec { font-size: 14px; line-height: 1.6; color: var(--ink-2); padding: 11px 0; }
+    .cs-dec + .cs-dec { border-top: 0.5px solid var(--hairline-dk); }
+    .cs-dec b { color: var(--ink); font-weight: 650; }
+    .cs-foot { font-size: 12.5px; color: var(--ink-3); text-align: center; line-height: 1.6; margin: 22px 20px 8px; }
+
+    /* ── Spinner ───────────────────────────────────────────────────────────── */
+    .spin { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(0,0,0,0.08); border-top-color: var(--amber); border-radius: 50%; animation: spin .6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Modal ─────────────────────────────────────────────────────────────── */
+    .overlay {
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(30,20,5,0.28);
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+      opacity: 0; pointer-events: none; transition: opacity .22s ease;
+    }
+    .overlay.open { opacity: 1; pointer-events: auto; }
+    .modal {
+      width: 100%; max-width: 384px; padding: 30px 28px;
+      border-radius: var(--r-xl); background: var(--glass-bright);
+      box-shadow: var(--spec), 0 30px 70px rgba(30,20,5,0.35);
+      -webkit-backdrop-filter: blur(40px) saturate(180%); backdrop-filter: blur(40px) saturate(180%);
+      border: 0.5px solid var(--hairline);
+      transform: translateY(14px) scale(.96); transition: transform .3s cubic-bezier(.34,1.4,.5,1);
+    }
+    .overlay.open .modal { transform: none; }
+    .modal-head { font-size: 19px; font-weight: 700; letter-spacing: -0.3px; }
+    .modal-sub { font-size: 13px; color: var(--ink-2); margin: 3px 0 22px; }
+    .amount-show { border-radius: var(--r-md); padding: 18px; text-align: center; margin-bottom: 18px; background: rgba(255,255,255,0.5); box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), inset 0 0 0 0.5px rgba(0,0,0,0.04); }
+    .amount-cur { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+    .amount-val { font-size: 48px; font-weight: 700; letter-spacing: -2px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .quick { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 16px; }
+    .qa-btn { padding: 10px 0; border-radius: 11px; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; border: none;
+      background: rgba(255,255,255,0.5); color: var(--ink); box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), inset 0 0 0 0.5px rgba(0,0,0,0.05); transition: all .14s ease; }
+    .qa-btn:hover { color: var(--amber-dk); }
+    .qa-btn.on { background: var(--amber-tint); color: var(--amber-dk); box-shadow: inset 0 0 0 1.5px var(--amber); }
+    .modal-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+
+    /* ── Toast ─────────────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(16px);
+      padding: 12px 20px; border-radius: 100px; z-index: 500;
+      background: rgba(28,28,30,0.82); color: #fff; font-size: 13.5px; font-weight: 550;
+      -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 10px 34px rgba(0,0,0,0.3);
+      opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s cubic-bezier(.34,1.4,.5,1);
+      white-space: nowrap;
+    }
+    #toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+
+    /* Cards lift gently toward the pointer — tactile, not bouncy */
+    .stat, .vehicle, .donut-card, .summary-card, .panel {
+      transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s ease;
+    }
+    .stat:hover, .vehicle:hover, .donut-card:hover, .summary-card:hover {
+      transform: translateY(-2px);
+    }
+
+    @media (max-width: 980px) {
+      .reports-top { grid-template-columns: 1fr; }
+      .hero-grid { flex-direction: column; }
+      .hero-right { width: auto; border-left: none; padding-left: 0; border-top: 0.5px solid var(--hairline-dk); padding-top: 20px; margin-top: 4px; }
+    }
+    @media (max-width: 880px) {
+      .sidebar { display: none; }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+
+    /* Respect reduced-motion — still the destination, just no journey */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+      .ambient::before, .ambient::after { animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Ambient world the glass refracts -->
+<div class="ambient"></div>
+<div class="grain"></div>
+
+<!-- SVG filters: liquid lensing + pump gradient -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="liquid-lens" x="-20%" y="-20%" width="140%" height="140%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.008 0.012" numOctaves="2" seed="42" result="noise"/>
+    <feGaussianBlur in="noise" stdDeviation="2.4" result="soft"/>
+    <feDisplacementMap in="SourceGraphic" in2="soft" scale="58" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <linearGradient id="pump-grad" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#FFBE45"/>
+    <stop offset="1" stop-color="#FF7A00"/>
+  </linearGradient>
+</svg>
+
+<!-- Top-up modal -->
+<div class="overlay" id="topup-overlay" onclick="if(event.target===this)closeTopup()">
+  <div class="modal">
+    <div class="modal-head">Top Up Wallet</div>
+    <div class="modal-sub">Funds added instantly via Apple Pay</div>
+    <div class="amount-show">
+      <div class="amount-cur">SAR</div>
+      <div class="amount-val" id="modal-val">200</div>
+    </div>
+    <div class="quick">
+      <button class="qa-btn" onclick="pickAmt(100)">100</button>
+      <button class="qa-btn on" onclick="pickAmt(200)">200</button>
+      <button class="qa-btn" onclick="pickAmt(500)">500</button>
+      <button class="qa-btn" onclick="pickAmt(1000)">1,000</button>
+    </div>
+    <div class="field">
+      <label class="field-label">Other amount</label>
+      <input class="field-input" id="custom-input" type="number" min="10" max="50000" placeholder="SAR" oninput="customAmt(this.value)">
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-glass" onclick="closeTopup()">Cancel</button>
+      <button class="btn btn-primary" id="confirm-topup" onclick="doTopup()">Add Funds</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div class="app">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+  <aside class="sidebar glass glass--nav">
+    <div class="brand">
+      <div class="brand-mark">F</div>
+      <div class="brand-name">Friday Tech</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item active" onclick="go('dashboard')">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="2.5" y="2.5" width="6" height="6" rx="1.6"/><rect x="11.5" y="2.5" width="6" height="6" rx="1.6"/><rect x="2.5" y="11.5" width="6" height="6" rx="1.6"/><rect x="11.5" y="11.5" width="6" height="6" rx="1.6"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-item" onclick="go('fill')">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17V6a1.5 1.5 0 011.5-1.5h5A1.5 1.5 0 0112 6v11"/><path d="M4 17h8"/><path d="M8 9.5H6"/><path d="M14 7v3.5"/><path d="M14 6.5c1.4 0 2.8 1 2.8 2.8v2.4c0 1 .8 1.8 1.7 1.8"/></svg>
+        Simulate Fill
+      </div>
+      <div class="nav-item" onclick="go('reports')">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="12" width="3.4" height="5.5" rx="1"/><rect x="8.3" y="7.5" width="3.4" height="10" rx="1"/><rect x="14.1" y="3" width="3.4" height="14.5" rx="1"/></svg>
+        Reports
+      </div>
+      <div class="nav-item" onclick="go('setup')">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="2.6"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.3 4.3l1.4 1.4M14.3 14.3l1.4 1.4M4.3 15.7l1.4-1.4M14.3 5.7l1.4-1.4"/></svg>
+        Account
+      </div>
+      <div class="nav-item" onclick="go('case')">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h7L16.5 7v10a1 1 0 01-1 1h-10.5a1 1 0 01-1-1V3.5a1 1 0 011-1z"/><path d="M12 2.5V7h4.5"/><path d="M7 11h6M7 14h6"/></svg>
+        Case Study
+      </div>
+    </nav>
+    <div class="nav-foot"><span class="live"></span> API connected</div>
+  </aside>
+
+  <!-- ── Content ──────────────────────────────────────────────────────────── -->
+  <div class="content">
+
+    <!-- Top bar -->
+    <header class="topbar glass glass--nav">
+      <span class="topbar-title" id="bc">Dashboard</span>
+      <div class="user-pill">
+        <span class="av" id="av">MA</span>
+        <span id="uname">Mohammed</span>
+      </div>
+    </header>
+
+    <div class="scroll">
+
+      <!-- ════════════ DASHBOARD ════════════ -->
+      <div id="p-dashboard" class="page active">
+        <div class="heading">
+          <h1 id="greeting">Good morning, Mohammed</h1>
+          <p id="dash-date"></p>
+        </div>
+
+        <!-- Balance hero — the Liquid Glass showpiece -->
+        <div class="hero glass glass--liquid">
+          <div class="lens"></div>
+          <div class="hero-grid">
+            <div class="hero-left">
+              <div class="hero-eyebrow">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="2" y="5" width="16" height="11" rx="2.5"/><path d="M2 8.5h16"/></svg>
+                Wallet Balance
+              </div>
+              <div class="hero-amount">
+                <span class="hero-cur">SAR</span>
+                <span class="hero-num" id="bal">—</span>
+              </div>
+              <div class="hero-avail" id="avail-txt">Loading…</div>
+              <div class="hero-bottom">
+                <div class="hero-iban" id="bal-iban"></div>
+                <div class="hero-actions">
+                  <button class="btn btn-primary" onclick="openTopup()">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+                    Top Up
+                  </button>
+                  <button class="btn btn-glass" onclick="go('fill')">Fill Now</button>
+                </div>
+              </div>
+            </div>
+            <div class="hero-right">
+              <div class="spark-head"><span class="spark-title">Last 7 Days</span></div>
+              <div class="spark-total"><small>SAR</small><span id="spark-total">0.00</span></div>
+              <div class="spark-bars" id="spark-bars"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid-2" style="margin-top:14px">
+          <div class="stat glass">
+            <div class="stat-label">Fills This Month</div>
+            <div class="stat-num" id="m-fills">—</div>
+            <div class="stat-unit">transactions</div>
+          </div>
+          <div class="stat glass">
+            <div class="stat-label">Spent This Month</div>
+            <div class="stat-num" id="m-spend">—</div>
+            <div class="stat-unit">SAR</div>
+          </div>
+        </div>
+
+        <!-- Vehicle -->
+        <div class="vehicle glass" style="margin-top:14px">
+          <div class="vehicle-info">
+            <div class="vehicle-eyebrow">Primary Vehicle</div>
+            <div class="vehicle-plate" id="v-plate">—</div>
+            <div class="vehicle-make" id="v-make"></div>
+            <div class="chips">
+              <span class="chip chip-green"><span class="chip-dot"></span>Active</span>
+              <span class="chip chip-amber" id="v-fuel">Gasoline 95</span>
+              <span class="chip chip-amber" id="v-tank" style="display:none"></span>
+            </div>
+          </div>
+          <div class="fuel-badge" id="v-badge">
+            <span class="fuel-badge-num" id="v-badge-num">95</span>
+            <span class="fuel-badge-lbl">Octane</span>
+          </div>
+        </div>
+
+        <!-- Weekly fuel limit -->
+        <div class="vehicle glass" id="weekly-card" style="margin-top:14px;display:none;flex-direction:column;align-items:stretch;gap:0">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
+            <div class="vehicle-eyebrow" style="margin:0">Weekly Fuel Limit</div>
+            <div style="font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums"><b id="wk-used">0</b> / <span id="wk-cap">0</span> L this week</div>
+          </div>
+          <div class="wk-track"><div class="wk-fill" id="wk-fill"></div></div>
+          <div style="font-size:12px;color:var(--ink-3);margin-top:8px" id="wk-note">Resets as the rolling 7-day window moves.</div>
+        </div>
+
+        <!-- Activity -->
+        <div style="margin-top:22px">
+          <div class="section-head">
+            <h2>Recent Activity</h2>
+            <span class="section-link" onclick="go('reports')">View all
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l4 3.5L5 10"/></svg>
+            </span>
+          </div>
+          <div class="panel glass" id="tx-list"><div style="padding:52px;text-align:center"><span class="spin"></span></div></div>
+        </div>
+      </div>
+
+      <!-- ════════════ FILL ════════════ -->
+      <div id="p-fill" class="page">
+        <div class="heading"><h1>Simulate Fill</h1><p>Walk through a complete pump transaction</p></div>
+
+        <div class="steps">
+          <div class="step active" id="sd1"><div class="step-dot">1</div><span class="step-label">Tap Tag</span></div>
+          <div class="step-line" id="sl1"></div>
+          <div class="step" id="sd2"><div class="step-dot">2</div><span class="step-label">Authorized</span></div>
+          <div class="step-line" id="sl2"></div>
+          <div class="step" id="sd3"><div class="step-dot">3</div><span class="step-label">Dispensing</span></div>
+          <div class="step-line" id="sl3"></div>
+          <div class="step" id="sd4"><div class="step-dot"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.5l2.5 2.5 4.5-5"/></svg></div><span class="step-label">Receipt</span></div>
+        </div>
+
+        <!-- Step 1 -->
+        <div id="fs1" class="form-wrap">
+          <div class="form-card glass">
+            <div class="form-title">Scan RFID Tag</div>
+            <div class="err" id="ferr" style="display:none">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 5v3.5"/><circle cx="8" cy="11" r=".6" fill="currentColor"/></svg>
+              <span id="ferr-msg"></span>
+            </div>
+            <div class="field"><label class="field-label">Tag UID</label><input class="field-input" id="f-tag" placeholder="RFID-TAG-0042"></div>
+            <div class="field"><label class="field-label">Station</label><input class="field-input" id="f-station" value="ALDREES-RYD-001"></div>
+            <div class="field"><label class="field-label">Fuel Grade</label>
+              <select class="field-input" id="f-grade">
+                <option value="GASOLINE_95">Gasoline 95</option>
+                <option value="GASOLINE_91">Gasoline 91</option>
+                <option value="DIESEL">Diesel</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-full" id="auth-btn" onclick="doAuth()" style="margin-top:8px">Authorize at Pump</button>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div id="fs2" style="display:none" class="form-wrap">
+          <div class="form-card glass">
+            <div class="form-title">At the Pump</div>
+            <p style="font-size:13px;color:var(--ink-2);margin:-14px 0 20px;line-height:1.45">Tag verified and funds held. The attendant fuels the car — the slider stands in for the pump's meter reading.</p>
+            <div class="auth-table" id="auth-box"></div>
+            <div class="field"><label class="field-label">Pump meter — litres dispensed</label>
+              <div class="vol">
+                <input type="range" id="lrange" min="1" max="120" value="35" oninput="document.getElementById('rvl').textContent=parseFloat(this.value).toFixed(1)+' L'">
+                <span class="vol-val" id="rvl">35.0 L</span>
+              </div>
+              <div style="font-size:12px;color:var(--ink-3);margin-top:8px">In a real WAIE pump this comes from the flow meter, not a person — capped by the hold above.</div>
+            </div>
+            <button class="btn btn-primary btn-full" onclick="doSettle()" style="margin-top:14px">Complete Fill</button>
+            <button class="btn btn-glass btn-full" onclick="resetFill()" style="margin-top:8px">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div id="fs3" style="display:none" class="form-wrap">
+          <div class="pump glass">
+            <div class="pump-ring">
+              <svg width="168" height="168" viewBox="0 0 168 168">
+                <circle class="pump-track" cx="84" cy="84" r="75"/>
+                <circle class="pump-bar" id="pump-arc" cx="84" cy="84" r="75"/>
+              </svg>
+              <div class="pump-center">
+                <div class="pump-num" id="pump-num">0.000</div>
+                <div class="pump-unit">Litres</div>
+              </div>
+            </div>
+            <div class="pump-status"><span>Dispensing fuel…</span></div>
+          </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div id="fs4" style="display:none" class="form-wrap">
+          <div class="receipt glass">
+            <div class="receipt-hero">
+              <div class="fuel-orb" id="fuel-orb">
+                <svg viewBox="0 0 72 72" width="70" height="70">
+                  <defs>
+                    <clipPath id="orbClip"><circle cx="36" cy="36" r="32"/></clipPath>
+                    <linearGradient id="fuelGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" stop-color="color-mix(in srgb, var(--fuel) 72%, white)"/>
+                      <stop offset="1" stop-color="var(--fuel)"/>
+                    </linearGradient>
+                  </defs>
+                  <circle cx="36" cy="36" r="32" fill="rgba(255,255,255,0.55)"/>
+                  <g clip-path="url(#orbClip)">
+                    <g class="fuel-rise">
+                      <path class="wave wave-back" opacity="0.5" fill="url(#fuelGrad)"
+                            d="M-12,8 q9,-4 18,0 t18,0 t18,0 t18,0 t18,0 t18,0 t18,0 t18,0 L132,82 L-12,82 Z"/>
+                      <path class="wave wave-front" fill="url(#fuelGrad)"
+                            d="M-12,6 q9,-4 18,0 t18,0 t18,0 t18,0 t18,0 t18,0 t18,0 t18,0 L132,82 L-12,82 Z"/>
+                    </g>
+                    <circle class="bubble b1" cx="29" cy="58" r="2"   fill="rgba(255,255,255,0.6)"/>
+                    <circle class="bubble b2" cx="45" cy="60" r="1.5" fill="rgba(255,255,255,0.55)"/>
+                  </g>
+                  <ellipse cx="27" cy="22" rx="11" ry="6" fill="rgba(255,255,255,0.35)" transform="rotate(-28 27 22)"/>
+                  <circle cx="36" cy="36" r="32" fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="1.5"/>
+                  <circle cx="36" cy="36" r="32.5" fill="none" stroke="rgba(0,0,0,0.05)" stroke-width="1"/>
+                  <path class="orb-check" d="M22,38 l7,7 l16,-18" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="receipt-thanks" id="r-thanks">Thank you</div>
+              <div class="receipt-amt" id="r-amt">—</div>
+              <div class="receipt-sub" id="r-sub">—</div>
+            </div>
+            <div class="receipt-rows" id="r-rows"></div>
+            <div class="receipt-foot" id="r-ref">—</div>
+          </div>
+          <div class="insights glass" id="r-ins" style="display:none">
+            <div class="ins"><div class="ins-num" id="i-fills">—</div><div class="ins-lbl">Fills this month</div></div>
+            <div class="ins"><div class="ins-num" id="i-spend">—</div><div class="ins-lbl">SAR spent</div></div>
+          </div>
+          <button class="btn btn-primary btn-full" onclick="resetFill()" style="margin-top:14px">Done</button>
+        </div>
+      </div>
+
+      <!-- ════════════ REPORTS ════════════ -->
+      <div id="p-reports" class="page">
+        <div class="heading"><h1>Reports</h1><p id="rep-date">Daily reconciliation</p></div>
+        <div class="reports-top">
+          <div class="glass donut-card">
+            <div class="donut-title">Spending by Fuel</div>
+            <div class="donut-wrap">
+              <div id="donut"></div>
+              <div class="donut-center"><div class="donut-total" id="donut-total">—</div><div class="donut-cap">total spent</div></div>
+            </div>
+            <div class="legend" id="donut-legend"></div>
+          </div>
+          <div class="glass summary-card">
+            <div class="sum-row"><div><div class="sum-label">Topups Today</div><div class="sum-sub" id="r-tt">—</div></div><div class="sum-val" id="r-tc">—</div></div>
+            <div class="sum-row"><div><div class="sum-label">Fills Today</div><div class="sum-sub" id="r-ft">—</div></div><div class="sum-val" id="r-fc">—</div></div>
+            <div class="sum-row"><div><div class="sum-label">Settled Authorizations</div><div class="sum-sub" id="r-oh">—</div></div><div class="sum-val" id="r-sc">—</div></div>
+          </div>
+        </div>
+        <div style="margin-top:22px">
+          <div class="section-head"><h2>Statement</h2></div>
+          <div class="panel glass">
+            <table class="table">
+              <thead><tr><th>Type</th><th>Description</th><th>Time</th><th class="r">Amount</th></tr></thead>
+              <tbody id="stmt-body"><tr><td colspan="4" style="padding:44px;text-align:center"><span class="spin"></span></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════ ACCOUNT ════════════ -->
+      <div id="p-setup" class="page">
+        <div class="heading"><h1>Account</h1><p>Demo account details</p></div>
+        <div class="info glass">
+          <div class="info-row"><span class="info-key">Name</span><span class="info-val" id="su-name">—</span></div>
+          <div class="info-row"><span class="info-key">Vehicle</span><span class="info-val" id="su-plate">—</span></div>
+          <div class="info-row"><span class="info-key">Model</span><span class="info-val" id="su-make">—</span></div>
+          <div class="info-row"><span class="info-key">RFID Tag</span><span class="info-val mono" id="su-tag">—</span></div>
+          <div class="info-row"><span class="info-key">Wallet</span><span class="info-val mono" id="su-wallet" style="font-size:11px">—</span></div>
+        </div>
+
+        <div class="info glass" style="margin-top:16px;padding:20px;max-width:480px">
+          <div class="vehicle-eyebrow" style="margin-bottom:8px">Weekly Fuel Limit</div>
+          <div style="font-size:13px;color:var(--ink-2);margin-bottom:14px;line-height:1.45">Cap how many litres this car can fill each week. Once it's hit, fills are paused until the week rolls forward. Leave empty for no limit.</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <input class="field-input" id="wk-input" type="number" min="0" max="2000" style="flex:1" placeholder="Litres per week">
+            <button class="btn btn-primary btn-sm" onclick="saveWeeklyLimit()">Save</button>
+          </div>
+        </div>
+
+        <button class="btn btn-glass btn-sm" onclick="confirmReset()" style="margin-top:18px">Reset Demo Account</button>
+      </div>
+
+      <!-- ════════════ CASE STUDY ════════════ -->
+      <div id="p-case" class="page">
+        <div class="cs">
+          <div class="heading" style="margin-bottom:26px">
+            <h1>Thobii — a product case study</h1>
+            <p>An open-loop RFID fuel wallet for Saudi Arabia · concept → live demo</p>
+          </div>
+
+          <div class="glass cs-block">
+            <div class="cs-label">The Problem</div>
+            <p class="cs-p">Saudi fuel stations are full-service by regulation — an attendant pumps every fill. Payment is still the slowest, most error-prone step: cash handling, card terminals at the pump lane, wrong fuel grades going into tanks, and fleets that can't control what their drivers spend. Aldrees proved the fix works: its RFID system (WAIE) runs on <b>629 stations and 623,000+ vehicles</b> — tap, fuel, drive off.</p>
+          </div>
+
+          <div class="glass cs-block">
+            <div class="cs-label">The Insight</div>
+            <p class="cs-p">WAIE isn't a payments business — it's a <b>lock-in machine</b>. ~97% of Aldrees revenue is fuel sales; WAIE exists to keep fleets fueling only at Aldrees. It's a closed loop: one brand's tag, one brand's stations.</p>
+            <p class="cs-p">That's the structural gap. <b>Aldrees can't open the loop without breaking its own lock-in.</b> A neutral wallet that works across every station brand is a product the incumbent is structurally unable to copy.</p>
+          </div>
+
+          <div class="glass cs-block">
+            <div class="cs-label">The Wedge — an open-loop wallet</div>
+            <p class="cs-p">One wallet, one tag, any station brand. Thobii monetizes like a payments company, not a fuel retailer: a <b>per-fill merchant fee</b> charged to stations for the volume Thobii routes to them, plus fleet controls as the B2B hook.</p>
+            <div class="cs-math">
+              <div class="cs-math-row"><span>Average fill (40 L Gasoline 95 @ SAR 2.33)</span><b>≈ SAR 93</b></div>
+              <div class="cs-math-row"><span>Per-fill fee to station (illustrative ~1%)</span><b>≈ SAR 0.90</b></div>
+              <div class="cs-math-row"><span>Fleet vehicle × 8 fills / month</span><b>≈ SAR 7.20 / vehicle / mo</b></div>
+              <div class="cs-math-row"><span>At 100k vehicles (16% of WAIE's base)</span><b>≈ SAR 8.6M / year</b></div>
+            </div>
+            <p class="cs-p cs-fine">Honest tension: fuel retail margins are thin, so a fee only clears if it pays for itself — incremental routed volume, less cash handling, less fraud. That's why the go-to-market starts with challenger station brands hungry for fleet volume, not the leader. Float on prepaid balances and fleet SaaS are secondary lines.</p>
+          </div>
+
+          <div class="glass cs-block">
+            <div class="cs-label">Key Product Decisions</div>
+            <div class="cs-dec"><b>Hold → capture, not one charge.</b> The pump can't know the final amount before fueling, so authorize places a hold for the maximum affordable volume and settle captures the metered amount. Same model card networks use at pumps. Tradeoff: expiry and release logic to build and test.</div>
+            <div class="cs-dec"><b>Research corrected the model.</b> The first version let the user "choose litres." Studying WAIE showed the truth: litres come from the pump's flow meter, and the attendant pumps — the driver never enters a number. The UI was relabelled to match reality.</div>
+            <div class="cs-dec"><b>Misfuel prevention at authorize.</b> Each vehicle is locked to a grade; the wrong nozzle is refused before a drop flows — mirrors WAIE's nozzle-reader verification.</div>
+            <div class="cs-dec"><b>Weekly litre caps.</b> Building limits revealed the real buyer: the fleet manager, not the driver. Caps, velocity limits, and one-active-fill-per-vehicle are the B2B product.</div>
+            <div class="cs-dec"><b>Money that can't lie.</b> Append-only double-sided ledger, integer halalas (no floats), idempotency keys on every money endpoint, reconciliation reports. 99 automated tests against a real Postgres.</div>
+            <div class="cs-dec"><b>Try-it distribution.</b> The live demo runs a full in-browser mock — anyone can authorize, fill, and read a receipt without signing up.</div>
+          </div>
+
+          <div class="glass cs-block">
+            <div class="cs-label">What's Real, What's Not</div>
+            <p class="cs-p"><b>Genuinely built and tested:</b> the money core — append-only ledger, hold → capture authorization, idempotency keys on every money endpoint, integer money math (no floats), wallet locking under concurrency, velocity and volume limits, daily reconciliation — verified by 99 automated tests against a real PostgreSQL.</p>
+            <p class="cs-p"><b>Deliberately out of scope at this stage:</b> live payment rails (top-ups are simulated), KYC/AML, user authentication, and physical pump integration. Each is scoped, not forgotten — rails via a mada/PSP gateway, KYC through a licensed partner, and the flow-meter settle spec sits on the roadmap.</p>
+            <p class="cs-p cs-fine">Knowing which half is which is the credibility test for any fintech demo.</p>
+          </div>
+
+          <div class="glass cs-block">
+            <div class="cs-label">Regulation</div>
+            <p class="cs-p">A stored-value wallet in Saudi Arabia is regulated e-money. Path: launch inside the <b>SAMA Regulatory Sandbox</b> or ride on a licensed EMI partner, with mada / Apple Pay rails for top-ups — licensing is a launch dependency, not an afterthought.</p>
+          </div>
+
+          <div class="glass cs-block">
+            <div class="cs-label">Success Metrics</div>
+            <p class="cs-p"><b>North star:</b> monthly settled fills per active wallet — it proves habit, routed volume, and fee revenue in one number.</p>
+            <p class="cs-p"><b>Guardrails:</b> authorization failure rate · reversal rate · top-up → first-fill conversion · dormant balance share (float that signals churn, not profit).</p>
+          </div>
+
+          <div class="glass cs-block">
+            <div class="cs-label">What's Next</div>
+            <p class="cs-p">1. Pilot with one challenger station network (prove open loop) · 2. Fleet dashboard — multi-vehicle caps, consumption reports, VAT invoices · 3. SAMA sandbox application · 4. Pump integration spec: flow-meter settle over webhook, replacing the simulator.</p>
+          </div>
+
+          <p class="cs-foot">Built end-to-end — market research, product decisions, working ledger backend, and this UI — using AI-assisted development, shipped as a live demo. The simulator upstairs is the product; this page is the reasoning.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';
+// DEMO mode — runs entirely in the browser against an in-memory mock of the
+// Thobii API, so the dashboard, fills, charts and receipt all work with no
+// backend or database (e.g. on a static Vercel deploy). Flip to false to talk
+// to the real Fastify API instead.
+const DEMO = true;
+let S = {};
+let topupAmt = 200;
+
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),3200); }
+
+// Grouped currency formatting — 1,234.56 (Apple always groups thousands)
+function fmt(v){ const n=typeof v==='number'?v:parseFloat(v); if(isNaN(n)) return v; return n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Spring-eased count-up for value changes
+function countUp(el, to){
+  const from = parseFloat((el.textContent||'0').replace(/,/g,'')) || 0;
+  if(reduceMotion || from===to){ el.textContent=fmt(to); return; }
+  const dur=650, t0=performance.now();
+  (function tick(now){
+    const p=Math.min(1,(now-t0)/dur);
+    const e=1-Math.pow(1-p,3); // easeOutCubic
+    el.textContent=fmt(from+(to-from)*e);
+    if(p<1) requestAnimationFrame(tick);
+  })(t0);
+}
+
+async function req(method, path, body, ikey){
+  if(DEMO) return mockReq(method, path, body);
+  const h={'Content-Type':'application/json'}; if(ikey) h['Idempotency-Key']=ikey;
+  const r=await fetch(API+path,{method,headers:h,body:body?JSON.stringify(body):undefined});
+  const d=await r.json(); if(!r.ok) throw Object.assign(new Error(d.error||'Error'),{data:d}); return d;
+}
+
+/* ── In-browser mock API ──────────────────────────────────────────────────────
+   Mirrors the real endpoints' shapes (format.ts helpers ported below) and keeps
+   wallet state in localStorage so balances persist across reloads. Demo allows
+   any fuel grade so the orb colours and the donut split can be explored. */
+const MK='thobii_mock5', STATION='Aldrees Riyadh North';
+// Saudi pump prices in halalas/litre (Gasoline 91 SAR 2.18, 95 SAR 2.33, Diesel SAR 1.79)
+const PRICES={GASOLINE_91:218, GASOLINE_95:233, DIESEL:179};
+function priceOf(g){ return PRICES[g]||233; }
+let M; try{ M=JSON.parse(localStorage.getItem(MK)); }catch{} M=M||{balance:0,held:0,entries:[],auths:{},grade:'GASOLINE_95'};
+function mkSave(){ localStorage.setItem(MK, JSON.stringify(M)); }
+function mGrade(g){ return ({GASOLINE_91:{code:'GASOLINE_91',display:'Gasoline 91'},GASOLINE_95:{code:'GASOLINE_95',display:'Gasoline 95'},DIESEL:{code:'DIESEL',display:'Diesel'}})[g]||{code:g,display:g}; }
+function mColor(g){ return ({GASOLINE_91:{background:'#1C3A5E',foreground:'#FFFFFF',name:'Navy'},GASOLINE_95:{background:'#FF9F0A',foreground:'#000000',name:'Amber Gold'},DIESEL:{background:'#30D158',foreground:'#000000',name:'Green'}})[g]||{background:'#8E8E93',foreground:'#FFFFFF',name:'Gray'}; }
+function mSar(h){ const s=h<0?'-':''; const a=Math.abs(h); return s+Math.floor(a/100)+'.'+String(a%100).padStart(2,'0'); }
+function mTime(d){ const now=new Date(), ds=new Date(d.getFullYear(),d.getMonth(),d.getDate()), t0=new Date(now.getFullYear(),now.getMonth(),now.getDate()); const t=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}); if(ds.getTime()===t0.getTime()) return `Today at ${t}`; if(ds.getTime()===t0.getTime()-86400000) return `Yesterday at ${t}`; return `${d.toLocaleString('en-US',{month:'long'})} ${d.getDate()} at ${t}`; }
+let mFillN=0; function mFillRef(d){ mFillN=(mFillN+1)%10000; return `FILL-${d.toISOString().slice(0,10)}-${String(mFillN).padStart(4,'0')}`; }
+function mUid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function mWeekUsedMl(){ const since=Date.now()-7*24*3600000; return M.entries.filter(e=>e.type==='CAPTURE'&&new Date(e.created_at).getTime()>=since).reduce((s,e)=>s+(e._litres||0)*1000,0); }
+
+async function mockReq(method, path, body){
+  await new Promise(r=>setTimeout(r, 110)); // touch of latency for realism
+  if(method==='POST' && path==='/v1/users'){
+    M={balance:0,held:0,entries:[],auths:{},grade:'GASOLINE_95'}; mkSave();
+    const id=mUid();
+    return { user:{id,name:body.name,email:body.email,virtual_iban:'SA'+Date.now()}, wallet:{id:'wal_'+id} };
+  }
+  if(method==='POST' && path==='/v1/wallet/topups/app'){
+    M.balance += body.amount_halalas;
+    M.entries.unshift({ id:mUid(), type:'TOPUP_CREDIT', amount_halalas:String(body.amount_halalas), amount_sar:mSar(body.amount_halalas), description:'Top-up via '+(body.method==='APPLE_PAY'?'Apple Pay':'Card'), display_time:mTime(new Date()), created_at:new Date().toISOString() });
+    mkSave(); return { ok:true };
+  }
+  if(method==='POST' && path==='/v1/vehicles'){
+    M.grade=body.allowed_grade; M.weeklyLimitMl=body.weekly_litre_limit_ml||null; mkSave();
+    return { vehicle:{ id:'veh_'+mUid(), plate:body.plate, make_model:body.make_model||null, tank_capacity_ml:body.tank_capacity_ml||null, weekly_litre_limit_ml:M.weeklyLimitMl, status:'ACTIVE', fuel_type:mGrade(body.allowed_grade), color_hint:mColor(body.allowed_grade) }, tag: body.tag_uid?{tagUid:body.tag_uid,status:'ACTIVE'}:null };
+  }
+  // Set / update the weekly litres cap
+  if(method==='PATCH' && /\/limits$/.test(path)){
+    M.weeklyLimitMl = body.weekly_litre_limit_ml||null; mkSave();
+    return { weekly_litre_limit_ml:M.weeklyLimitMl };
+  }
+  if(method==='GET' && /^\/v1\/wallets\/[^/]+$/.test(path)){
+    const avail=M.balance-M.held;
+    return { balance_halalas:String(M.balance), balance_sar:mSar(M.balance), held_halalas:String(M.held), available_halalas:String(avail), available_sar:mSar(avail), currency:'SAR' };
+  }
+  if(method==='GET' && /\/statement$/.test(path)){ return { entries:M.entries.slice() }; }
+  if(method==='POST' && path==='/v1/fuel/authorize'){
+    const grade=body.grade, price=priceOf(grade), avail=M.balance-M.held;
+    if(avail < price) throw Object.assign(new Error('Your balance is too low to authorize a fill. Top up to continue.'),{data:{}});
+    let maxMl=Math.min(120000, Math.floor(avail/price*1000));
+    if(M.weeklyLimitMl){
+      const remaining=Math.max(0, M.weeklyLimitMl - mWeekUsedMl());
+      if(remaining < 1000) throw Object.assign(new Error('Weekly fuel limit reached for this vehicle. It frees up as the week rolls forward.'),{data:{}});
+      maxMl=Math.min(maxMl, remaining);
+    }
+    const aid='auth_'+mUid();
+    M.auths[aid]={grade,maxMl}; mkSave();
+    const exp=new Date(Date.now()+300000);
+    return { authorization_id:aid, status:'AUTHORIZED', status_display:'Ready to fill', fuel_type:mGrade(grade), color_hint:mColor(grade), station_name:STATION, max_litres:(maxMl/1000).toFixed(3), max_millilitres:maxMl, price_per_litre_sar:mSar(price), price_per_litre_halalas:price, reserved_sar:mSar(Math.round(maxMl/1000*price)), expires_at:exp.toISOString(), display_time:mTime(exp) };
+  }
+  if(method==='POST' && path==='/v1/fuel/settle'){
+    const a=M.auths[body.authorization_id], grade=a?a.grade:M.grade, price=priceOf(grade);
+    const litres=body.millilitres_dispensed/1000, captured=Math.round(litres*price), gd=mGrade(grade);
+    M.balance-=captured;
+    M.entries.unshift({ id:mUid(), type:'CAPTURE', amount_halalas:String(-captured), amount_sar:mSar(-captured), description:`Fuel fill — ${gd.display} · ${litres.toFixed(3)} L · ${STATION}`, display_time:mTime(new Date()), created_at:new Date().toISOString(), _litres:litres });
+    if(a) delete M.auths[body.authorization_id]; mkSave();
+    const fills=M.entries.filter(e=>e.type==='CAPTURE'), spent=fills.reduce((s,e)=>s+Math.abs(parseInt(e.amount_halalas)),0), now=new Date();
+    return { receipt:{ amount_charged_sar:mSar(captured), subheadline:`${litres.toFixed(3)} L of ${gd.display} at ${STATION}`, station_name:STATION, fuel_type:gd, quantity_litres:litres.toFixed(3), unit_price_sar:mSar(price), new_balance_sar:mSar(M.balance), fill_reference:mFillRef(now), display_time:mTime(now) }, insights:{ fills_this_month:fills.length, spent_this_month_sar:mSar(spent) } };
+  }
+  if(method==='GET' && path==='/v1/reports/reconciliation'){
+    const tops=M.entries.filter(e=>e.type==='TOPUP_CREDIT'), fills=M.entries.filter(e=>e.type==='CAPTURE');
+    const tTot=tops.reduce((s,e)=>s+parseInt(e.amount_halalas),0), fTot=fills.reduce((s,e)=>s+Math.abs(parseInt(e.amount_halalas)),0), lit=fills.reduce((s,e)=>s+(e._litres||0),0);
+    return { topups:{count:tops.length,total_sar:mSar(tTot)}, fills:{count:fills.length,total_litres:lit.toFixed(3),total_sar:mSar(fTot)}, authorizations:{settled:fills.length}, outstanding_holds:{count:0} };
+  }
+  throw new Error('Mock: unhandled '+method+' '+path);
+}
+
+async function boot(){
+  const hr=new Date().getHours();
+  const greet=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
+  document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  document.getElementById('rep-date').textContent='Reconciliation · '+new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  try{ S=JSON.parse(localStorage.getItem('thobii5')||'{}'); }catch{}
+  if(!S.userId) await createDemo(); else { applyState(greet); await loadDash(); }
+}
+
+async function createDemo(){
+  const hr=new Date().getHours();
+  const greet=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
+  const uid=Date.now().toString(36)+Math.random().toString(36).slice(2);
+  try{
+    const u=await req('POST','/v1/users',{name:'Mohammed Al-Rashidi',email:`demo-${uid}@thobii.sa`});
+    S.userId=u.user.id; S.walletId=u.wallet.id; S.name=u.user.name; S.iban=u.user.virtual_iban;
+    await req('POST','/v1/wallet/topups/app',{wallet_id:S.walletId,amount_halalas:100000,method:'APPLE_PAY'},`boot-${uid}`);
+    const v=await req('POST','/v1/vehicles',{user_id:S.userId,plate:'ABC 1234',allowed_grade:'GASOLINE_95',make_model:'Toyota Camry 2024',tank_capacity_ml:65000,weekly_litre_limit_ml:150000,tag_uid:`RFID-${uid}`});
+    S.vehicleId=v.vehicle.id; S.tagUid=`RFID-${uid}`; S.plate=v.vehicle.plate; S.makeModel=v.vehicle.make_model; S.fuelType=v.vehicle.fuel_type; S.colorHint=v.vehicle.color_hint; S.tank=v.vehicle.tank_capacity_ml; S.weeklyLimitMl=v.vehicle.weekly_litre_limit_ml;
+    save(); applyState(greet); await loadDash();
+  }catch(e){ console.error('Demo setup failed',e); toast('Setup failed — check console'); }
+}
+
+function applyState(greet='Hello'){
+  const first=(S.name||'').split(' ')[0]||'Mohammed';
+  document.getElementById('greeting').textContent=`${greet}, ${first}`;
+  document.getElementById('uname').textContent=first;
+  document.getElementById('av').textContent=(S.name||'MR').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  if(S.plate) document.getElementById('v-plate').textContent=S.plate;
+  if(S.makeModel) document.getElementById('v-make').textContent=S.makeModel;
+  if(S.fuelType){
+    document.getElementById('v-fuel').textContent=S.fuelType.display;
+    const code=S.fuelType.code||'';
+    const badge=document.getElementById('v-badge'), num=document.getElementById('v-badge-num'), lbl=badge.querySelector('.fuel-badge-lbl');
+    if(code.startsWith('GASOLINE')){ num.textContent=code.split('_')[1]; num.style.fontSize='25px'; lbl.textContent='Octane'; }
+    else { num.textContent='DSL'; num.style.fontSize='19px'; lbl.textContent='Diesel'; }
+    if(S.colorHint){ const bg=S.colorHint.background; badge.style.background=`linear-gradient(160deg, color-mix(in srgb, ${bg} 82%, white), ${bg})`; num.style.color=S.colorHint.foreground; lbl.style.color=S.colorHint.foreground; }
+  }
+  if(S.tank){ const tk=document.getElementById('v-tank'); tk.textContent=`${Math.round(S.tank/1000)} L tank`; tk.style.display='inline-flex'; }
+  if(S.tagUid) document.getElementById('f-tag').value=S.tagUid;
+  if(S.iban) document.getElementById('bal-iban').textContent=S.iban.slice(0,2)+' •••• •••• '+S.iban.slice(-4);
+}
+
+function save(){ localStorage.setItem('thobii5',JSON.stringify(S)); }
+
+async function loadDash(){
+  if(!S.walletId) return;
+  try{
+    const [w,stmt]=await Promise.all([req('GET',`/v1/wallets/${S.walletId}`),req('GET',`/v1/wallets/${S.walletId}/statement`)]);
+    countUp(document.getElementById('bal'), parseFloat(w.balance_sar)||0);
+    const held=BigInt(w.held_halalas??'0');
+    document.getElementById('avail-txt').textContent= held>0n
+      ? `SAR ${fmt(w.available_sar)} available · SAR ${fmt(Number(held)/100)} on hold`
+      : `SAR ${fmt(w.available_sar)} available`;
+    const entries=stmt.entries??[];
+    buildTxList(entries);
+    renderSpark(entries);
+    renderWeekly(entries);
+    const fills=entries.filter(e=>e.type==='CAPTURE');
+    document.getElementById('m-fills').textContent=fills.length;
+    document.getElementById('m-spend').textContent=fmt(fills.reduce((s,e)=>s+Math.abs(parseFloat(e.amount_sar)),0));
+  }catch(e){ console.error(e); }
+}
+
+function txIcon(type){
+  if(type==='TOPUP_CREDIT') return {bg:'rgba(0,122,255,0.14)',fg:'#0066CC',svg:'<svg viewBox="0 0 19 19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="2" y="5" width="15" height="10" rx="2.2"/><path d="M2 8h15"/></svg>'};
+  if(type==='REVERSAL') return {bg:'rgba(255,149,0,0.14)',fg:'#C76E00',svg:'<svg viewBox="0 0 19 19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5a5.5 5.5 0 1011 0"/><path d="M4 5v4.5h4.5"/></svg>'};
+  return {bg:'rgba(255,149,0,0.14)',fg:'#C76E00',svg:'<svg viewBox="0 0 19 19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16V6a1.4 1.4 0 011.4-1.4h4.2A1.4 1.4 0 0111 6v10"/><path d="M4 16h7"/><path d="M7.5 9.5H5.5"/><path d="M13 7v3.2"/><path d="M13 6.4c1.2 0 2.4.8 2.4 2.4v2c0 .9.7 1.5 1.5 1.5"/></svg>'};
+}
+
+// 7-day spending chart (Apple Card weekly-activity treatment)
+function renderSpark(entries){
+  const days=[]; const now=new Date();
+  for(let i=6;i>=0;i--){ const d=new Date(now); d.setHours(0,0,0,0); d.setDate(d.getDate()-i); days.push({d,total:0,label:'SMTWTFS'[d.getDay()]}); }
+  entries.filter(e=>e.type==='CAPTURE').forEach(e=>{
+    const t=new Date(e.created_at); t.setHours(0,0,0,0);
+    const slot=days.find(x=>x.d.getTime()===t.getTime());
+    if(slot) slot.total+=Math.abs(parseFloat(e.amount_sar));
+  });
+  const max=Math.max(...days.map(x=>x.total),1);
+  const week=days.reduce((a,x)=>a+x.total,0);
+  document.getElementById('spark-total').textContent=fmt(week);
+
+  // Drawn as SVG for pixel-exact bar heights
+  const W=240, H=72, gap=12, n=7, bw=(W-gap*(n-1))/n;
+  let bars='';
+  days.forEach((x,i)=>{
+    const isToday=i===6;
+    const bh=x.total>0?Math.max(8,x.total/max*H):4;
+    const bx=i*(bw+gap), by=H-bh;
+    const fill=x.total>0?(isToday?'url(#gToday)':'url(#gBar)'):'rgba(0,0,0,0.07)';
+    bars+=`<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="4" fill="${fill}"/>`;
+    bars+=`<text x="${(bx+bw/2).toFixed(1)}" y="${H+15}" text-anchor="middle" font-size="10" font-weight="600" fill="${isToday?'#C76E00':'rgba(60,60,67,0.40)'}">${x.label}</text>`;
+  });
+  document.getElementById('spark-bars').innerHTML=
+    `<svg viewBox="0 0 ${W} ${H+20}" preserveAspectRatio="xMidYMax meet">
+       <defs>
+         <linearGradient id="gBar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFC062"/><stop offset="1" stop-color="#FF9500"/></linearGradient>
+         <linearGradient id="gToday" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFB84D"/><stop offset="1" stop-color="#F57C00"/></linearGradient>
+       </defs>${bars}
+     </svg>`;
+}
+
+// Weekly fuel-limit usage bar
+function litresFromDesc(d){ const m=d&&d.match(/·\s*([\d.]+)\s*L/); return m?parseFloat(m[1]):0; }
+function renderWeekly(entries){
+  const card=document.getElementById('weekly-card');
+  if(!S.weeklyLimitMl){ card.style.display='none'; return; }
+  const since=Date.now()-7*24*3600000;
+  const usedL=entries.filter(e=>e.type==='CAPTURE'&&new Date(e.created_at).getTime()>=since).reduce((s,e)=>s+litresFromDesc(e.description),0);
+  const capL=S.weeklyLimitMl/1000, pct=capL?Math.min(100, usedL/capL*100):0;
+  document.getElementById('wk-used').textContent=usedL.toFixed(1);
+  document.getElementById('wk-cap').textContent=capL.toFixed(0);
+  const fill=document.getElementById('wk-fill'); fill.style.width=pct+'%'; fill.classList.toggle('warn', pct>=85);
+  document.getElementById('wk-note').textContent = pct>=100
+    ? 'Limit reached — fills are paused until the week rolls forward.'
+    : 'Resets as the rolling 7-day window moves.';
+  card.style.display='flex';
+}
+
+async function saveWeeklyLimit(){
+  const v=parseFloat(document.getElementById('wk-input').value);
+  const ml=(!isNaN(v)&&v>0)?Math.round(v*1000):null;
+  try{
+    await req('PATCH', `/v1/vehicles/${S.vehicleId}/limits`, { weekly_litre_limit_ml:ml });
+    S.weeklyLimitMl=ml; save();
+    toast(ml?`Weekly limit set to ${v.toFixed(0)} L`:'Weekly limit removed');
+    loadDash();
+  }catch(e){ toast(e.message); }
+}
+
+function buildTxList(entries){
+  const el=document.getElementById('tx-list');
+  if(!entries.length){
+    el.innerHTML=`<div class="empty"><div class="empty-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18"/></svg></div><div class="empty-title">No transactions yet</div><div class="empty-body">Your fill history appears here after your first top-up and fill.</div></div>`;
+    return;
+  }
+  const credit=t=>t==='TOPUP_CREDIT'||t==='REVERSAL';
+  el.innerHTML=entries.slice(0,6).map(e=>{ const i=txIcon(e.type); return `
+    <div class="tx-row">
+      <div class="tx-icon" style="background:${i.bg};color:${i.fg}">${i.svg}</div>
+      <div class="tx-body"><div class="tx-title">${e.description}</div><div class="tx-time">${e.display_time}</div></div>
+      <div class="tx-amt ${credit(e.type)?'cr':'db'}">${credit(e.type)?'+':'−'}SAR ${fmt(Math.abs(parseFloat(e.amount_sar)))}</div>
+    </div>`; }).join('');
+}
+
+// Top-up
+function openTopup(){ topupAmt=200; document.getElementById('modal-val').textContent='200'; document.getElementById('custom-input').value=''; document.querySelectorAll('.qa-btn').forEach(b=>b.classList.toggle('on',b.textContent.trim()==='200')); document.getElementById('topup-overlay').classList.add('open'); }
+function closeTopup(){ document.getElementById('topup-overlay').classList.remove('open'); }
+function pickAmt(n){ topupAmt=n; document.getElementById('modal-val').textContent=n.toLocaleString(); document.getElementById('custom-input').value=''; document.querySelectorAll('.qa-btn').forEach(b=>b.classList.toggle('on',parseInt(b.textContent.replace(',',''))===n)); }
+function customAmt(v){ const n=parseFloat(v); if(!isNaN(n)&&n>0){ topupAmt=n; document.getElementById('modal-val').textContent=n.toLocaleString(); document.querySelectorAll('.qa-btn').forEach(b=>b.classList.remove('on')); } }
+async function doTopup(){
+  const halalas=Math.round(topupAmt*100); if(!halalas||halalas<=0) return;
+  const btn=document.getElementById('confirm-topup'); btn.disabled=true; btn.textContent='Processing…';
+  try{ await req('POST','/v1/wallet/topups/app',{wallet_id:S.walletId,amount_halalas:halalas,method:'APPLE_PAY'},`topup-${Date.now()}`); closeTopup(); toast(`SAR ${topupAmt.toFixed(2)} added successfully`); await loadDash(); }
+  catch(e){ toast(e.message); } finally{ btn.disabled=false; btn.textContent='Add Funds'; }
+}
+
+// Fill wizard
+let authId=null;
+async function doAuth(){
+  const tag=document.getElementById('f-tag').value.trim();
+  const station=document.getElementById('f-station').value.trim();
+  const grade=document.getElementById('f-grade').value;
+  const errEl=document.getElementById('ferr'); errEl.style.display='none';
+  const btn=document.getElementById('auth-btn'); btn.disabled=true; btn.textContent='Authorizing…';
+  try{
+    const a=await req('POST','/v1/fuel/authorize',{tag_uid:tag,station_code:station,grade});
+    authId=a.authorization_id; const maxL=parseFloat(a.max_litres);
+    document.getElementById('auth-box').innerHTML=`
+      <div class="auth-row"><span class="auth-key">Status</span><span class="auth-val" style="color:var(--green-dk)">${a.status_display}</span></div>
+      <div class="auth-row"><span class="auth-key">Fuel</span><span class="auth-val">${a.fuel_type.display}</span></div>
+      <div class="auth-row"><span class="auth-key">Station</span><span class="auth-val">${a.station_name}</span></div>
+      <div class="auth-row"><span class="auth-key">Price / L</span><span class="auth-val">SAR ${a.price_per_litre_sar}</span></div>
+      <div class="auth-row"><span class="auth-key">Max volume</span><span class="auth-val">${a.max_litres} L</span></div>
+      <div class="auth-row"><span class="auth-key">Expires</span><span class="auth-val" style="color:var(--ink-2);font-weight:500">${a.display_time}</span></div>`;
+    const r=document.getElementById('lrange'); r.max=maxL; r.value=Math.min(35,maxL);
+    document.getElementById('rvl').textContent=Math.min(35,maxL).toFixed(1)+' L';
+    setStep(2);
+  }catch(e){ document.getElementById('ferr-msg').textContent=e.message; errEl.style.display='flex'; }
+  finally{ btn.disabled=false; btn.textContent='Authorize at Pump'; }
+}
+
+async function doSettle(){
+  const litres=parseFloat(document.getElementById('lrange').value);
+  const ml=Math.round(litres*1000); setStep(3);
+  const C=2*Math.PI*75; const arc=document.getElementById('pump-arc');
+  let shown=0;
+  const ticker=setInterval(()=>{ shown=Math.min(shown+litres/30,litres); document.getElementById('pump-num').textContent=shown.toFixed(3); arc.style.strokeDashoffset=C*(1-shown/litres); if(shown>=litres) clearInterval(ticker); },60);
+  await new Promise(r=>setTimeout(r,1900));
+  try{
+    const res=await req('POST','/v1/fuel/settle',{authorization_id:authId,millilitres_dispensed:ml},`settle-${authId}`);
+    const rc=res.receipt;
+    const fuelColor=({GASOLINE_91:'#1C3A5E',GASOLINE_95:'#FF9F0A',DIESEL:'#30D158'})[rc.fuel_type&&rc.fuel_type.code]||(S.colorHint&&S.colorHint.background)||'#FF9500';
+    document.getElementById('fuel-orb').style.setProperty('--fuel', fuelColor);
+    document.getElementById('r-thanks').textContent='Thank you, '+((S.name||'').split(' ')[0]||'there');
+    document.getElementById('r-amt').textContent='SAR '+fmt(rc.amount_charged_sar);
+    document.getElementById('r-sub').textContent=rc.subheadline;
+    document.getElementById('r-rows').innerHTML=`
+      <div class="rec-row"><span class="rec-key">Station</span><span class="rec-val">${rc.station_name}</span></div>
+      <div class="rec-row"><span class="rec-key">Fuel</span><span class="rec-val">${rc.fuel_type.display}</span></div>
+      <div class="rec-row"><span class="rec-key">Volume</span><span class="rec-val">${rc.quantity_litres} L</span></div>
+      <div class="rec-row"><span class="rec-key">Price / L</span><span class="rec-val">SAR ${rc.unit_price_sar}</span></div>
+      <div class="rec-row"><span class="rec-key">New balance</span><span class="rec-val">SAR ${fmt(rc.new_balance_sar)}</span></div>
+      <div class="rec-row rec-total"><span class="rec-key">Charged</span><span class="rec-val">SAR ${fmt(rc.amount_charged_sar)}</span></div>`;
+    document.getElementById('r-ref').textContent=rc.fill_reference+' · '+rc.display_time;
+    if(res.insights){ document.getElementById('i-fills').textContent=res.insights.fills_this_month; document.getElementById('i-spend').textContent=fmt(res.insights.spent_this_month_sar); document.getElementById('r-ins').style.display='flex'; }
+    setStep(4); loadDash();
+  }catch(e){ toast(e.message); setStep(2); }
+}
+
+function resetFill(){
+  authId=null;
+  document.getElementById('ferr').style.display='none';
+  document.getElementById('r-ins').style.display='none';
+  document.getElementById('pump-num').textContent='0.000';
+  document.getElementById('pump-arc').style.strokeDashoffset=2*Math.PI*75;
+  setStep(1); loadDash();
+}
+
+function setStep(n){
+  for(let i=1;i<=4;i++){
+    const fs=document.getElementById('fs'+i); if(fs) fs.style.display=(i===n)?'block':'none';
+    const sd=document.getElementById('sd'+i); if(!sd) continue;
+    sd.classList.remove('active','done'); if(i<n) sd.classList.add('done'); if(i===n) sd.classList.add('active');
+    if(i<4){ const sl=document.getElementById('sl'+i); if(sl) sl.style.background=i<n?'var(--green)':'var(--ink-4)'; }
+  }
+}
+
+// Spending-by-grade donut — Apple Fitness ring treatment (rounded caps, segments)
+const GRADE_COLORS={'Gasoline 95':'#FF9500','Gasoline 91':'#1C3A5E','Diesel':'#34C759'};
+function gradeFromDesc(d){ try{ return d.split('—')[1].split('·')[0].trim(); }catch{ return 'Fuel'; } }
+function renderDonut(entries){
+  const fills=entries.filter(e=>e.type==='CAPTURE');
+  const byGrade={};
+  fills.forEach(e=>{ const g=gradeFromDesc(e.description); byGrade[g]=(byGrade[g]||0)+Math.abs(parseFloat(e.amount_sar)); });
+  const grades=Object.keys(byGrade);
+  const total=grades.reduce((a,g)=>a+byGrade[g],0);
+  document.getElementById('donut-total').textContent=fmt(total);
+
+  const R=64, SW=18, C=2*Math.PI*R, gap=(total>0&&grades.length>1)?7:0;
+  let circles='', acc=0;
+  if(total===0){
+    circles=`<circle cx="84" cy="84" r="${R}" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="${SW}"/>`;
+  } else {
+    grades.forEach(g=>{
+      const frac=byGrade[g]/total;
+      const len=Math.max(0.01, frac*C-gap);
+      const color=GRADE_COLORS[g]||'#FF9500';
+      circles+=`<circle cx="84" cy="84" r="${R}" fill="none" stroke="${color}" stroke-width="${SW}" stroke-linecap="round" stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}"/>`;
+      acc+=frac*C;
+    });
+  }
+  document.getElementById('donut').innerHTML=`<svg width="168" height="168" viewBox="0 0 168 168">${circles}</svg>`;
+
+  const legend=document.getElementById('donut-legend');
+  if(total===0){ legend.innerHTML=`<div class="legend-row"><span class="legend-name" style="color:var(--ink-3)">No fills in this period yet</span></div>`; return; }
+  legend.innerHTML=grades.map(g=>{
+    const color=GRADE_COLORS[g]||'#FF9500', pct=Math.round(byGrade[g]/total*100);
+    return `<div class="legend-row"><span class="legend-dot" style="background:${color}"></span><span class="legend-name">${g}</span><span class="legend-val">SAR ${fmt(byGrade[g])} · ${pct}%</span></div>`;
+  }).join('');
+}
+
+async function loadReports(){
+  if(!S.walletId) return;
+  try{
+    const [rc,st]=await Promise.all([req('GET','/v1/reports/reconciliation'),req('GET',`/v1/wallets/${S.walletId}/statement`)]);
+    document.getElementById('r-tc').textContent=rc.topups.count;
+    document.getElementById('r-tt').textContent='SAR '+fmt(rc.topups.total_sar);
+    document.getElementById('r-fc').textContent=rc.fills.count;
+    document.getElementById('r-ft').textContent=rc.fills.total_litres+' L dispensed';
+    document.getElementById('r-sc').textContent=rc.authorizations.settled;
+    document.getElementById('r-oh').textContent=rc.outstanding_holds.count+' holds open';
+    const entries=st.entries??[];
+    renderDonut(entries);
+    const tb=document.getElementById('stmt-body');
+    if(!entries.length){ tb.innerHTML=`<tr><td colspan="4" style="padding:44px;text-align:center;color:var(--ink-3)">No transactions yet</td></tr>`; return; }
+    const credit=t=>t==='TOPUP_CREDIT'||t==='REVERSAL';
+    const badge={TOPUP_CREDIT:'<span class="chip chip-green">Top-up</span>',REVERSAL:'<span class="chip chip-amber">Reversal</span>'};
+    tb.innerHTML=entries.map(e=>{ const b=badge[e.type]||'<span class="chip chip-amber">Fill</span>'; const clr=credit(e.type)?'color:var(--green-dk)':''; return `<tr><td>${b}</td><td style="color:var(--ink-2)">${e.description}</td><td style="color:var(--ink-3)">${e.display_time}</td><td class="r" style="${clr}">${credit(e.type)?'+':'−'}SAR ${fmt(Math.abs(parseFloat(e.amount_sar)))}</td></tr>`; }).join('');
+  }catch(e){ console.error(e); }
+}
+
+const TITLES={dashboard:'Dashboard',fill:'Simulate Fill',reports:'Reports',setup:'Account',case:'Case Study'};
+function go(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('p-'+name).classList.add('active');
+  document.querySelector(`[onclick="go('${name}')"]`).classList.add('active');
+  document.getElementById('bc').textContent=TITLES[name]||name;
+  if(name==='dashboard') loadDash();
+  if(name==='reports') loadReports();
+  if(name==='fill'&&S.tagUid) document.getElementById('f-tag').value=S.tagUid;
+  if(name==='setup'){
+    document.getElementById('su-name').textContent=S.name||'—';
+    document.getElementById('su-plate').textContent=S.plate||'—';
+    document.getElementById('su-make').textContent=S.makeModel||'—';
+    document.getElementById('su-tag').textContent=S.tagUid||'—';
+    document.getElementById('su-wallet').textContent=S.walletId||'—';
+    document.getElementById('wk-input').value=S.weeklyLimitMl?(S.weeklyLimitMl/1000):'';
+  }
+}
+
+async function confirmReset(){
+  if(!confirm('Reset and create a fresh demo account?')) return;
+  localStorage.removeItem('thobii5'); S={}; await createDemo(); go('dashboard');
+}
+
+// Pointer-reactive specular — move the light source with the cursor
+window.addEventListener('mousemove', e=>{
+  const g = e.target.closest && e.target.closest('.glass');
+  if(!g) return;
+  const r = g.getBoundingClientRect();
+  g.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+  g.style.setProperty('--my', (e.clientY - r.top) + 'px');
+}, { passive:true });
+
+boot();
+</script>
+</body>
+</html>

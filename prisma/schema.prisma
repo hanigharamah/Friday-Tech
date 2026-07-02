@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  virtualIban  String    @unique @map("virtual_iban")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  wallets      Wallet[]
+  vehicles     Vehicle[]
+
+  @@map("users")
+}
+
+model Wallet {
+  id              String        @id @default(uuid())
+  userId          String        @map("user_id")
+  balanceHalalas  BigInt        @default(0) @map("balance_halalas")
+  heldHalalas     BigInt        @default(0) @map("held_halalas")
+  currency        String        @default("SAR")
+  user            User          @relation(fields: [userId], references: [id])
+  ledgerEntries   LedgerEntry[]
+  authorizations  Authorization[]
+
+  @@map("wallets")
+}
+
+enum FuelGrade {
+  GASOLINE_91
+  GASOLINE_95
+  DIESEL
+}
+
+enum VehicleStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model Vehicle {
+  id                   String          @id @default(uuid())
+  userId               String          @map("user_id")
+  plate                String
+  allowedGrade         FuelGrade       @map("allowed_grade")
+  status               VehicleStatus   @default(ACTIVE)
+  dailyLitreLimitMl    Int?            @map("daily_litre_limit_ml")
+  weeklyLitreLimitMl   Int?            @map("weekly_litre_limit_ml")
+  makeModel            String?         @map("make_model")
+  tankCapacityMl       Int?            @map("tank_capacity_ml")
+  user                 User            @relation(fields: [userId], references: [id])
+  rfidTags             RfidTag[]
+  authorizations       Authorization[]
+
+  @@map("vehicles")
+}
+
+enum RfidTagStatus {
+  ACTIVE
+  SUSPENDED
+  LOST
+}
+
+model RfidTag {
+  id        String        @id @default(uuid())
+  tagUid    String        @unique @map("tag_uid")
+  vehicleId String        @map("vehicle_id")
+  status    RfidTagStatus @default(ACTIVE)
+  vehicle   Vehicle       @relation(fields: [vehicleId], references: [id])
+
+  @@map("rfid_tags")
+}
+
+model Station {
+  id             String          @id @default(uuid())
+  code           String          @unique
+  name           String
+  authorizations Authorization[]
+
+  @@map("stations")
+}
+
+model FuelPrice {
+  id                   String    @id @default(uuid())
+  grade                FuelGrade
+  pricePerLitreHalalas BigInt    @map("price_per_litre_halalas")
+  effectiveFrom        DateTime  @map("effective_from")
+
+  @@map("fuel_prices")
+}
+
+enum AuthorizationStatus {
+  AUTHORIZED
+  SETTLED
+  EXPIRED
+  REVERSED
+}
+
+model Authorization {
+  id                   String              @id @default(uuid())
+  walletId             String              @map("wallet_id")
+  vehicleId            String              @map("vehicle_id")
+  stationId            String              @map("station_id")
+  grade                FuelGrade
+  pricePerLitreHalalas BigInt              @map("price_per_litre_halalas")
+  maxMillilitres       Int                 @map("max_millilitres")
+  reservedHalalas      BigInt              @map("reserved_halalas")
+  status               AuthorizationStatus @default(AUTHORIZED)
+  expiresAt            DateTime            @map("expires_at")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  wallet               Wallet              @relation(fields: [walletId], references: [id])
+  vehicle              Vehicle             @relation(fields: [vehicleId], references: [id])
+  station              Station             @relation(fields: [stationId], references: [id])
+  transaction          Transaction?
+  ledgerEntries        LedgerEntry[]
+
+  @@map("authorizations")
+}
+
+model Transaction {
+  id                   String        @id @default(uuid())
+  authorizationId      String        @unique @map("authorization_id")
+  millilitresDispensed Int           @map("millilitres_dispensed")
+  capturedHalalas      BigInt        @map("captured_halalas")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  authorization        Authorization @relation(fields: [authorizationId], references: [id])
+
+  @@map("transactions")
+}
+
+enum LedgerEntryType {
+  TOPUP_CREDIT
+  HOLD
+  CAPTURE
+  RELEASE
+  REVERSAL
+}
+
+model LedgerEntry {
+  id              String          @id @default(uuid())
+  walletId        String          @map("wallet_id")
+  type            LedgerEntryType
+  amountHalalas   BigInt          @map("amount_halalas")
+  authorizationId String?         @map("authorization_id")
+  reference       String
+  createdAt       DateTime        @default(now()) @map("created_at")
+  wallet          Wallet          @relation(fields: [walletId], references: [id])
+  authorization   Authorization?  @relation(fields: [authorizationId], references: [id])
+
+  @@map("ledger_entries")
+}
+
+model IdempotencyKey {
+  key          String   @id
+  scope        String
+  requestHash  String   @map("request_hash")
+  responseJson String   @map("response_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([key, scope])
+  @@map("idempotency_keys")
+}
+
+model ProcessedBankTransfer {
+  bankReference String   @id @map("bank_reference")
+  walletId      String   @map("wallet_id")
+  amountHalalas BigInt   @map("amount_halalas")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("processed_bank_transfers")
+}

@@ -1,0 +1,7 @@
+import { z } from 'zod';
+
+export const CreateUserSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  virtual_iban: z.string().min(1).optional(), // auto-generated if omitted
+});
